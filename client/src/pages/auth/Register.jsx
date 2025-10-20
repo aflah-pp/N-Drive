@@ -21,9 +21,22 @@ function Register() {
   const [errors, setErrors] = useState({})
   const [generalError, setGeneralError] = useState('')
 
-  const handleChange = e =>
-    setFormData({ ...formData, [e.target.name]: e.target.value })
+  // ✅ Generic input handler
+  const handleChange = e => {
+    const { name, value } = e.target
 
+    // Special handling for phone number
+    if (name === 'phone') {
+      let phoneValue = value.replace(/\D/g, '') // remove all non-digit chars
+      // Prevent typing beyond 10 digits
+      if (phoneValue.length > 10) phoneValue = phoneValue.slice(0, 10)
+      setFormData({ ...formData, phone: phoneValue })
+    } else {
+      setFormData({ ...formData, [name]: value })
+    }
+  }
+
+  // ✅ Submit handler
   const handleSubmit = async e => {
     e.preventDefault()
     setErrors({})
@@ -35,15 +48,22 @@ function Register() {
     }
 
     try {
-      const dataToSend = { ...formData }
       setLoading(true)
+
+      // Ensure +91 prefix before sending
+      const dataToSend = {
+        ...formData,
+        phone: formData.phone.startsWith('+91')
+          ? formData.phone
+          : `+91${formData.phone}`,
+      }
 
       const res = await api.post('v1/register/', dataToSend)
       setLoading(false)
       localStorage.setItem('access', res.data.token.access)
       localStorage.setItem('refresh', res.data.token.refresh)
       setIsAuthorized(true)
-      navigate('/home')
+      navigate('/')
     } catch (err) {
       const detail = err.response?.data
       setLoading(false)
@@ -72,6 +92,7 @@ function Register() {
             {generalError}
           </p>
         )}
+
         <form
           onSubmit={handleSubmit}
           className="grid grid-cols-1 md:grid-cols-2 gap-6"
@@ -81,13 +102,8 @@ function Register() {
             { name: 'email', label: 'Email', type: 'email' },
             { name: 'first_name', label: 'First Name', type: 'text' },
             { name: 'last_name', label: 'Last Name', type: 'text' },
-            { name: 'phone', label: 'Phone', type: 'text' },
             { name: 'password', label: 'Password', type: 'password' },
-            {
-              name: 'password2',
-              label: 'Confirm Password',
-              type: 'password',
-            },
+            { name: 'password2', label: 'Confirm Password', type: 'password' },
           ].map(field => (
             <div key={field.name}>
               <label className="block text-sm font-semibold text-[#414a37] mb-1">
@@ -109,6 +125,31 @@ function Register() {
             </div>
           ))}
 
+          {/* ✅ Phone Input with +91 Locked */}
+          <div key="phone">
+            <label className="block text-sm font-semibold text-[#414a37] mb-1">
+              Phone
+            </label>
+            <div className="flex items-center">
+              <span className="px-3 py-2 bg-[#f3e7db] border border-[#99744a]/40 rounded-l-xl text-[#414a37] select-none">
+                +91
+              </span>
+              <input
+                type="tel"
+                name="phone"
+                value={formData.phone}
+                onChange={handleChange}
+                required
+                className="w-full px-4 py-2 border-t border-b border-r border-[#99744a]/40 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-[#99744a]"
+                placeholder="Enter 10-digit phone number"
+              />
+            </div>
+            {errors.phone && (
+              <p className="text-red-600 text-xs mt-1">{errors.phone}</p>
+            )}
+          </div>
+
+          {/* ✅ Submit Button */}
           <div className="md:col-span-2">
             <button
               type="submit"
