@@ -4,11 +4,19 @@ from .models import CustomUser, Folder, UserFile, Package, EncryptedChatSession
 
 class UserRegisterSerializer(serializers.ModelSerializer):
     password2 = serializers.CharField(write_only=True)
-    name = serializers.CharField(read_only=True)
 
     class Meta:
         model = CustomUser
-        fields = ["id", "username", "name", "email", "phone", "password", "password2"]
+        fields = [
+            "id",
+            "username",
+            "first_name",
+            "last_name",
+            "email",
+            "phone",
+            "password",
+            "password2",
+        ]
         extra_kwargs = {"password": {"write_only": True}, "email": {"required": True}}
 
     def validate(self, attrs):

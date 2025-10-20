@@ -15,7 +15,7 @@ function Register() {
     last_name: '',
     phone: '',
     password: '',
-    confirmPassword: '',
+    password2: '',
   })
 
   const [errors, setErrors] = useState({})
@@ -29,14 +29,13 @@ function Register() {
     setErrors({})
     setGeneralError('')
 
-    if (formData.password !== formData.confirmPassword) {
-      setErrors({ confirmPassword: 'Passwords do not match' })
+    if (formData.password !== formData.password2) {
+      setErrors({ password2: 'Passwords do not match' })
       return
     }
 
     try {
       const dataToSend = { ...formData }
-      delete dataToSend.confirmPassword
       setLoading(true)
 
       const res = await api.post('v1/register/', dataToSend)
@@ -85,7 +84,7 @@ function Register() {
             { name: 'phone', label: 'Phone', type: 'text' },
             { name: 'password', label: 'Password', type: 'password' },
             {
-              name: 'confirmPassword',
+              name: 'password2',
               label: 'Confirm Password',
               type: 'password',
             },

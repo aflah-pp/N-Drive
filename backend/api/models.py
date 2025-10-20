@@ -13,6 +13,11 @@ FERNET_KEY = settings.FERNET_KEY
 CIPHER = Fernet(FERNET_KEY)
 
 
+def get_default_package():
+    package = Package.objects.order_by("id").first()
+    return package.id if package else None
+
+
 def user_upload_path(instance, filename):
     name, ext = os.path.splitext(filename)
     safe_name = slugify(name)
@@ -36,19 +41,21 @@ class Package(models.Model):
 class CustomUser(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     phone = PhoneNumberField(region="IN")
+
     package = models.ForeignKey(
-        Package, on_delete=models.SET_NULL, null=True, blank=True
+        Package,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        default=get_default_package,
     )
 
     @property
     def name(self):
-        return f"{self.first_name} {self.last_name}"
+        return f"{self.first_name} {self.last_name}".strip()
 
     def __str__(self):
-        return self.name
-
-    def __str__(self):
-        return self.name
+        return self.name or self.username
 
 
 class Folder(models.Model):
