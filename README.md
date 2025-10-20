@@ -1,4 +1,4 @@
-# 🚀 N-Drive — AI-Powered Cloud File Manager
+# 🚀 N-Drive —  Cloud Like File Manager
 
 **N-Drive** is a full-stack cloud file management platform built with **React (frontend)** and **Django REST Framework (backend)**.  
 It allows users to securely upload, organize, share, and download files or folders — all with **AI-assisted features** like chat and image generation.
