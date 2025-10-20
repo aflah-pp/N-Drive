@@ -19,7 +19,7 @@ DEBUG = True
 ALLOWED_HOSTS = [
     "http://127.0.0.1:8000",
     "127.0.0.1",
-    "https://n-drive-server.onrender.com",
+    "n-drive-server.onrender.com",
 ]
 
 # Application definition
