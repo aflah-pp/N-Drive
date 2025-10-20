@@ -1,0 +1,21 @@
+{
+  "short_name": "N-Drive",
+  "name": "N-Drive - AI-powered Cloud Storage Platform",
+  "icons": [
+    {
+      "src": "/N-Drive-Logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/N-Drive-Logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#dbc2a6",
+  "theme_color": "#dbc2a6",
+  "display": "standalone",
+  "orientation": "portrait-primary"
+}

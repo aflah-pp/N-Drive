@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>N-Drive - AI-powered Cloud Storage Platform</title>
+
+    <!-- Primary Meta Tags -->
+    <meta name="title" content="N-Drive - AI-powered Cloud Storage Platform" />
+    <meta
+      name="description"
+      content="N-Drive is a full-stack AI-powered cloud storage platform with secure file handling, image generation, and AI chat integration."
+    />
+    <meta
+      name="keywords"
+      content="AI cloud storage, file management, React, Django, N-Drive"
+    />
+    <meta name="author" content="Aflah" />
+    <meta name="theme-color" content="#dbc2a6" />
+
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://.com/" />
+    <meta property="og:title" content="N-Drive - AI-powered Cloud Storage" />
+    <meta
+      property="og:description"
+      content="Secure, AI-powered cloud storage platform with file management, AI chat, and image generation."
+    />
+    <meta property="og:image" content="/N-Drive-Logo.png" />
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:url" content="https://yourdomain.com/" />
+    <meta property="twitter:title" content="N-Drive - AI Cloud Storage" />
+    <meta
+      property="twitter:description"
+      content="Full-stack AI-powered cloud storage platform built with React and Django."
+    />
+    <meta property="twitter:image" content="/N-Drive-Logo.png" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/N-Drive-Logo.png" />
+
+    <!-- Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+
+    <!-- iOS Support -->
+    <link rel="apple-touch-icon" href="/N-Drive-Logo.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker
+            .register('/service-worker.js')
+            .then(reg => console.log('SW registered: ', reg))
+            .catch(err => console.log('SW registration failed: ', err))
+        })
+      }
+    </script>
+  </body>
+</html>
