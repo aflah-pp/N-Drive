@@ -1,4 +1,4 @@
-import os
+gimport os
 import uuid
 import time
 import math
@@ -362,10 +362,10 @@ def payment_status(request):
                 package  # Assign  user the purchased package if transaction is success
             )
             user.save()
-            success_url = f"http://localhost:5173/payment-status?order_id={order_id}&status=success"
+            success_url = f"/payment-status?order_id={order_id}&status=success"
         else:
             transaction.status = "failed"
-            success_url = f"http://localhost:5173/payment-status?order_id={order_id}&status=failed"
+            success_url = f"/payment-status?order_id={order_id}&status=failed"
 
         transaction.save()
 
