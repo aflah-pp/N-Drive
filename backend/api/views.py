@@ -327,7 +327,7 @@ def initiate_payment(request):
     )
 
     payment_link = (
-        f"http://localhost:5173/payment?order_id={order_id}&amount={total_amount}"
+        f"/payment?order_id={order_id}&amount={total_amount}"
     )
 
     return Response(
