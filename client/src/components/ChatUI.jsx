@@ -1,88 +1,86 @@
-import React, { useEffect, useRef, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import rehypeHighlight from 'rehype-highlight'
-import api from '../service/api'
-import chatBot from '/src/assets/ai-bot.jpg'
-import 'highlight.js/styles/github.css'
-import { toast } from 'react-toastify'
+import React, { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import rehypeHighlight from "rehype-highlight";
+import api from "../service/api";
+import chatBot from "/src/assets/ai-bot.jpg";
+import "highlight.js/styles/github.css";
+import { toast } from "react-toastify";
 
 function ChatUI() {
-  const messagesEndRef = useRef(null)
-  const [messages, setMessages] = useState([])
-  const [input, setInput] = useState('')
-  const [loading, setLoading] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const messagesEndRef = useRef(null);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const scrollToBottom = () =>
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  useEffect(() => scrollToBottom(), [messages, loading])
+  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, loading]);
 
   const loadChat = async () => {
     try {
-      const res = await api.get('v1/chat/history/')
-      if (res.data?.conversation) setMessages(res.data.conversation)
+      const res = await api.get("v1/chat/history/");
+      if (res.data?.conversation) setMessages(res.data.conversation);
     } catch (err) {
-      console.error('Failed to load chat:', err)
+      console.error("Failed to load chat:", err);
     }
-  }
+  };
 
-  const saveChat = async updatedMessages => {
-    setSaving(true)
+  const saveChat = async (updatedMessages) => {
+    setSaving(true);
     try {
-      await api.post('v1/chat/save/', { conversation: updatedMessages })
+      await api.post("v1/chat/save/", { conversation: updatedMessages });
     } finally {
-      setSaving(false)
+      setSaving(false);
     }
-  }
+  };
 
   useEffect(() => {
-    loadChat()
-  }, [])
+    loadChat();
+  }, []);
 
   const handleSend = async () => {
-    if (!input.trim()) return
-    const userMsg = { sender: 'user', text: input }
-    const newMsgs = [...messages, userMsg]
-    setMessages([...newMsgs, { sender: 'ai', text: '...' }])
-    setInput('')
-    setLoading(true)
+    if (!input.trim()) return;
+    const userMsg = { sender: "user", text: input };
+    const newMsgs = [...messages, userMsg];
+    setMessages([...newMsgs, { sender: "ai", text: "..." }]);
+    setInput("");
+    setLoading(true);
 
     try {
-      const res = await api.post('v1/chat/', { message: input })
-      const reply = res.data.reply || 'No response received.'
-      const updated = [...newMsgs, { sender: 'ai', text: reply }]
-      setMessages(updated)
-      saveChat(updated)
+      const res = await api.post("v1/chat/", { message: input });
+      const reply = res.data.reply || "No response received.";
+      const updated = [...newMsgs, { sender: "ai", text: reply }];
+      setMessages(updated);
+      saveChat(updated);
     } catch (err) {
-      console.error(err)
-      setMessages([
-        ...newMsgs,
-        { sender: 'ai', text: 'Error: could not reply.' },
-      ])
+      console.error(err);
+      setMessages([...newMsgs, { sender: "ai", text: "Error: could not reply." }]);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const resetChat = async () => {
     try {
-      await api.delete('v1/chat/reset/')
-      setMessages([])
-      toast.success('Chat reset Success.')
+      await api.delete("v1/chat/reset/");
+      setMessages([]);
+      toast.success("Chat reset Success.");
     } catch (err) {
-      console.log(err)
-      toast.error('Chat reset Failed.')
+      console.log(err);
+      toast.error("Chat reset Failed.");
     }
-  }
-  const handleKeyDown = e => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      handleSend()
+  };
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
     }
-  }
+  };
 
-  const isEmpty = messages.length === 0
+  const isEmpty = messages.length === 0;
 
   return (
     <div className="flex flex-col h-full bg-gradient-to-br from-[#dbc2a6] to-[#b89a7c]">
@@ -97,9 +95,7 @@ function ChatUI() {
           />
           <div>
             <h2 className="text-xl font-semibold text-[#414a37]">N-Drive AI</h2>
-            {saving && (
-              <p className="text-sm text-[#99744a] animate-pulse">Saving...</p>
-            )}
+            {saving && <p className="text-sm text-[#99744a] animate-pulse">Saving...</p>}
           </div>
         </div>
 
@@ -118,23 +114,19 @@ function ChatUI() {
       <section
         className={`flex-1 px-6 py-4 ${
           isEmpty
-            ? 'flex flex-col items-center justify-center text-center'
-            : 'overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-[#99744a]/40'
+            ? "flex flex-col items-center justify-center text-center"
+            : "overflow-y-auto space-y-4 scrollbar-thin scrollbar-thumb-[#99744a]/40"
         }`}
       >
         {isEmpty ? (
-          <div className="text-[#414a37] text-lg font-medium">
-            What can I help with?
-          </div>
+          <div className="text-[#414a37] text-lg font-medium">What can I help with?</div>
         ) : (
           messages.map((msg, i) => (
             <div
               key={i}
-              className={`flex ${
-                msg.sender === 'ai' ? 'justify-start' : 'justify-end'
-              }`}
+              className={`flex ${msg.sender === "ai" ? "justify-start" : "justify-end"}`}
             >
-              {msg.sender === 'ai' && (
+              {msg.sender === "ai" && (
                 <img
                   src={chatBot}
                   className="w-8 h-8 rounded-full mr-2 border border-[#99744a]"
@@ -143,26 +135,23 @@ function ChatUI() {
               )}
               <div
                 className={`px-4 py-3 rounded-2xl max-w-3xl text-sm leading-relaxed shadow-sm whitespace-pre-wrap break-words ${
-                  msg.sender === 'ai'
-                    ? 'bg-[#99744a]/20 text-[#414a37] rounded-bl-none'
-                    : 'bg-[#99744a] text-white rounded-br-none'
+                  msg.sender === "ai"
+                    ? "bg-[#99744a]/20 text-[#414a37] rounded-bl-none"
+                    : "bg-[#99744a] text-white rounded-br-none"
                 }`}
               >
-                {msg.sender === 'ai' ? (
+                {msg.sender === "ai" ? (
                   <div className="prose prose-sm max-w-none break-words">
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       rehypePlugins={[rehypeHighlight]}
                       components={{
-                        table: props => (
+                        table: (props) => (
                           <div className="overflow-x-auto">
-                            <table
-                              {...props}
-                              className="table-auto border-collapse"
-                            />
+                            <table {...props} className="table-auto border-collapse" />
                           </div>
                         ),
-                        a: props => (
+                        a: (props) => (
                           <a
                             {...props}
                             className="text-blue-600 underline hover:text-blue-800"
@@ -191,7 +180,7 @@ function ChatUI() {
           <input
             type="text"
             value={input}
-            onChange={e => setInput(e.target.value)}
+            onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Type your message..."
             className="flex-1 max-w-md px-4 py-3 rounded-full bg-[#dbc2a6]/60 border border-[#99744a]/40 focus:outline-none focus:ring-2 focus:ring-[#99744a]/70 text-[#414a37] placeholder-[#99744a]"
@@ -201,12 +190,12 @@ function ChatUI() {
             disabled={loading}
             className="px-6 py-3 rounded-full bg-[#99744a] text-white font-medium hover:bg-[#b89a7c] transition disabled:opacity-50"
           >
-            {loading ? '...' : 'Send'}
+            {loading ? "..." : "Send"}
           </button>
         </div>
       </footer>
     </div>
-  )
+  );
 }
 
-export default ChatUI
+export default ChatUI;

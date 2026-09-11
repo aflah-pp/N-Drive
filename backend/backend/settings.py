@@ -1,9 +1,8 @@
 import os
-import dj_database_url
-from pathlib import Path
 from datetime import timedelta
-from dotenv import load_dotenv
+from pathlib import Path
 
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -15,7 +14,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = os.environ.get("DEBUG", "False") == "True"
+
 ALLOWED_HOSTS = [
     "http://127.0.0.1:8000",
     "127.0.0.1",
@@ -47,11 +47,7 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
 ]
 
-REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    )
-}
+REST_FRAMEWORK = {"DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",)}
 
 ROOT_URLCONF = "backend.urls"
 
@@ -128,6 +124,6 @@ SIMPLE_JWT = {
 # Environment Variables
 FERNET_KEY = os.environ.get("KEY")
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-GROQ_CHAT_URL = os.environ.get("GROQ_CHAT_URL")
+GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 STABLE_HORDE_URL = os.environ.get("STABLE_HORDE_URL")
 API_KEY = os.environ.get("API_KEY")

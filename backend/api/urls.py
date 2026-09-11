@@ -1,4 +1,5 @@
 from django.urls import path
+
 from . import views
 
 urlpatterns = [
@@ -10,9 +11,7 @@ urlpatterns = [
     path("username/", views.get_self_name, name="get_username"),
     # Package Related
     path("package/", views.get_package_details, name="package_details"),
-    path(
-        "permissions/", views.get_self_package_permissions, name="package_permissions"
-    ),
+    path("permissions/", views.get_self_package_permissions, name="package_permissions"),
     path("storage/", views.get_all_storage, name="get_f"),
     path("storage/usage/", views.get_storage_usage, name="get_size_usage"),
     # Create , Upload and delete related

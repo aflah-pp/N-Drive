@@ -1,75 +1,67 @@
-import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import {
-  FaCreditCard,
-  FaLock,
-  FaPercentage,
-  FaCalendarAlt,
-  FaShieldAlt,
-} from 'react-icons/fa'
-import api from '../../service/api'
-import Sidebar from '../../components/SideBar'
+import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { FaCreditCard, FaLock, FaPercentage, FaCalendarAlt, FaShieldAlt } from "react-icons/fa";
+import api from "../../service/api";
+import Sidebar from "../../components/SideBar";
 
 function PaymentInitiating() {
-  const [params] = useSearchParams()
-  const order_id = params.get('order_id')
-  const baseAmount = parseFloat(params.get('amount'))
-  const [amount, setAmount] = useState(baseAmount)
-  const [cardNumber, setCardNumber] = useState('')
-  const [expiry, setExpiry] = useState('')
-  const [cvv, setCvv] = useState('')
-  const [discountCode, setDiscountCode] = useState('')
-  const [discountApplied, setDiscountApplied] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [error, setError] = useState('')
+  const [params] = useSearchParams();
+  const order_id = params.get("order_id");
+  const baseAmount = parseFloat(params.get("amount"));
+  const [amount, setAmount] = useState(baseAmount);
+  const [cardNumber, setCardNumber] = useState("");
+  const [expiry, setExpiry] = useState("");
+  const [cvv, setCvv] = useState("");
+  const [discountCode, setDiscountCode] = useState("");
+  const [discountApplied, setDiscountApplied] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState("");
 
   //  Card format logic
-  const formatCardNumber = value => {
-    let digits = value.replace(/\D/g, '')
-    if (!digits.startsWith('453')) digits = '453' + digits.slice(3)
-    digits = digits.slice(0, 16)
-    return digits.replace(/(.{4})/g, '$1-').replace(/-$/, '')
-  }
+  const formatCardNumber = (value) => {
+    let digits = value.replace(/\D/g, "");
+    if (!digits.startsWith("453")) digits = "453" + digits.slice(3);
+    digits = digits.slice(0, 16);
+    return digits.replace(/(.{4})/g, "$1-").replace(/-$/, "");
+  };
 
-  const handleCardNumberChange = e =>
-    setCardNumber(formatCardNumber(e.target.value))
-  const handleExpiryChange = e => {
-    let val = e.target.value.replace(/\D/g, '').slice(0, 4)
-    if (val.length >= 3) val = val.slice(0, 2) + '/' + val.slice(2)
-    setExpiry(val)
-  }
-  const handleCvvChange = e =>
-    setCvv(e.target.value.replace(/\D/g, '').slice(0, 4))
+  const handleCardNumberChange = (e) => setCardNumber(formatCardNumber(e.target.value));
+  const handleExpiryChange = (e) => {
+    let val = e.target.value.replace(/\D/g, "").slice(0, 4);
+    if (val.length >= 3) val = val.slice(0, 2) + "/" + val.slice(2);
+    setExpiry(val);
+  };
+  const handleCvvChange = (e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, 4));
 
   const applyDiscount = () => {
-    if (discountApplied) return setError('Discount already applied.')
-    if (discountCode.trim().toUpperCase() === 'NEXUS777') {
-      setAmount(prev => Math.max(prev - 1000, 0).toFixed(2))
-      setDiscountApplied(true)
-      setError('')
-    } else setError('Invalid discount code.')
-  }
+    if (discountApplied) return setError("Discount already applied.");
+    if (discountCode.trim().toUpperCase() === "NEXUS777") {
+      setAmount((prev) => Math.max(prev - 1000, 0).toFixed(2));
+      setDiscountApplied(true);
+      setError("");
+    } else setError("Invalid discount code.");
+  };
 
   const handlePayNow = () => {
-    const rawCardNumber = cardNumber.replace(/-/g, '')
+    const rawCardNumber = cardNumber.replace(/-/g, "");
     if (!/^453\d{13}$/.test(rawCardNumber))
-      return setError('Card number must be 16 digits and start with 453.')
+      return setError("Card number must be 16 digits and start with 453.");
     if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(expiry))
-      return setError('Expiry must be in MM/YY format.')
-    if (!/^\d{3,4}$/.test(cvv)) return setError('CVV must be 3 or 4 digits.')
+      return setError("Expiry must be in MM/YY format.");
+    if (!/^\d{3,4}$/.test(cvv)) return setError("CVV must be 3 or 4 digits.");
 
-    setIsProcessing(true)
-    setError('')
+    setIsProcessing(true);
+    setError("");
     api
-      .post('v1/payment/status/', { order_id, status: 'success' })
-      .then(res => {
-        if (res.data.redirect_url) window.location.href = res.data.redirect_url
+      .post("v1/payment/status/", { order_id, status: "success" })
+      .then((res) => {
+        if (res.data?.result.redirect_url) window.location.href = res.data?.result.redirect_url;
       })
-      .catch(() => setError('Failed to process payment. Please try again.'))
-      .finally(() => setIsProcessing(false))
-  }
+      .catch(() => setError("Failed to process payment. Please try again."))
+      .finally(() => setIsProcessing(false));
+  };
 
-  const showVisaIcon = cardNumber.replace(/-/g, '').startsWith('453')
+  const showVisaIcon = cardNumber.replace(/-/g, "").startsWith("453");
 
   return (
     <div className="flex min-h-screen bg-[#dbc2a6] text-[#414a37]">
@@ -144,7 +136,7 @@ function PaymentInitiating() {
                 type="text"
                 placeholder="Discount Code"
                 value={discountCode}
-                onChange={e => setDiscountCode(e.target.value)}
+                onChange={(e) => setDiscountCode(e.target.value)}
                 disabled={discountApplied}
                 className="flex-1 bg-[#dbc2a6]/40 px-4 py-2 rounded-lg outline-none border border-[#99744a]/30 focus:ring-2 focus:ring-[#99744a]/50 disabled:opacity-50 transition"
               />
@@ -166,7 +158,7 @@ function PaymentInitiating() {
               disabled={isProcessing}
               className="w-full bg-[#99744a] hover:bg-[#82603c] text-white py-3 rounded-lg font-semibold text-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isProcessing ? 'Processing...' : `Pay ₹${amount}`}
+              {isProcessing ? "Processing..." : `Pay ₹${amount}`}
             </button>
           </div>
 
@@ -177,7 +169,7 @@ function PaymentInitiating() {
         </div>
       </main>
     </div>
-  )
+  );
 }
 
-export default PaymentInitiating
+export default PaymentInitiating;
