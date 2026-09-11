@@ -24,6 +24,34 @@ class AccountService:
 
 
 class PackageService:
+    @staticmethod
+    def bytes_to_mb(*, size_in_bytes):
+        return round(size_in_bytes / (1024 * 1024), 2)
+
+    @staticmethod
+    def storage_usage(*, user, package):
+
+        max_allowed_storage_bytes = package.max_upload_size if package else None
+        total_used_bytes = sum(f.size for f in user.files.all())
+
+        remaining_bytes = max_allowed_storage_bytes - total_used_bytes
+        remaining_bytes = max(remaining_bytes, 0)
+
+        used_mb = PackageService.bytes_to_mb(size_in_bytes=total_used_bytes)
+        remaining_mb = PackageService.bytes_to_mb(size_in_bytes=remaining_bytes)
+        total_mb = PackageService.bytes_to_mb(size_in_bytes=max_allowed_storage_bytes)
+
+        used_percentage = (
+            round((total_used_bytes / max_allowed_storage_bytes) * 100, 2) if max_allowed_storage_bytes > 0 else 0
+        )
+        response = {
+            "used_storage": f"{used_mb}Mb",
+            "remaining_storage": f"{remaining_mb}Mb",
+            "total_storage": f"{total_mb}Mb",
+            "used_percentage": used_percentage,
+        }
+        return response
+
     pass
 
 

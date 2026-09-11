@@ -19,7 +19,7 @@ from .serializers import (
     UserRegisterSerializer,
     UserSerializer,
 )
-from .services import AIService, FileService, FolderService, PaymentService
+from .services import AIService, FileService, FolderService, PackageService, PaymentService
 
 STABLE_HORDE_URL = settings.STABLE_HORDE_URL
 API_KEY = settings.API_KEY
@@ -178,34 +178,11 @@ def get_storage_usage(request):
     user = request.user
     package = user.package
 
-    # total used storage calculatin
-    total_used_bytes = sum(f.size for f in user.files.all())
-
-    # total allowed storage calculatin
-    total_storage_bytes = getattr(package, "max_storage", package.max_upload_size)
-
-    # Remaining storage calculatin
-    remaining_bytes = total_storage_bytes - total_used_bytes
-    remaining_bytes = max(remaining_bytes, 0)  # No negative value
-
-    # Convert  bytes to MB
-    def to_mb(size_bytes):
-        return round(size_bytes / (1024 * 1024), 2)
-
-    used_mb = to_mb(total_used_bytes)
-    remaining_mb = to_mb(remaining_bytes)
-    total_mb = to_mb(total_storage_bytes)
-
-    used_percentage = round((total_used_bytes / total_storage_bytes) * 100, 2) if total_storage_bytes > 0 else 0
-
-    return Response(
-        {
-            "used_storage": f"{used_mb} MB",
-            "remaining_storage": f"{remaining_mb} MB",
-            "total_storage": f"{total_mb} MB",
-            "used_percentage": used_percentage,
-        }
-    )
+    try:
+        result = PackageService.storage_usage(user=user, package=package)
+        return Response({"message": "Success", "result": result}, status=status.HTTP_200_OK)
+    except Exception:
+        return Response({"error": "function not working"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(["DELETE"])
