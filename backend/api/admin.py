@@ -1,25 +1,26 @@
 from django.contrib import admin
+
 from .models import (
     CustomUser,
-    Package,
-    Folder,
-    UserFile,
-    Transaction,
     EncryptedChatSession,
+    Folder,
+    Package,
+    Transaction,
+    UserFile,
 )
 
 
 class CustomUserAdmin(admin.ModelAdmin):
     list_display = (
         "id",
-        "name",
+        "full_name",
         "email",
     )
     ordering = ("id",)
     list_per_page = 5
     list_display_links = (
         "id",
-        "name",
+        "full_name",
         "email",
     )
     fieldsets = (
@@ -53,6 +54,10 @@ class CustomUserAdmin(admin.ModelAdmin):
             ),
         },
     )
+
+    @admin.display(description="Full name")
+    def full_name(self, obj):
+        return obj.get_full_name()
 
 
 admin.site.register(CustomUser, CustomUserAdmin)

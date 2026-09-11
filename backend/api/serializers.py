@@ -1,5 +1,6 @@
 from rest_framework import serializers
-from .models import CustomUser, Folder, UserFile, Package, EncryptedChatSession
+
+from .models import CustomUser, EncryptedChatSession, Folder, Package, UserFile
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
@@ -34,19 +35,17 @@ class UserRegisterSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(serializers.ModelSerializer):
-    name = serializers.CharField(read_only=True)
+    full_name = serializers.CharField(read_only=True)
     package_name = serializers.CharField(source="package.name", read_only=True)
     chat = serializers.CharField(source="package.chat_enabled", read_only=True)
-    max_storage = serializers.CharField(
-        source="package.max_upload_size", read_only=True
-    )
+    max_storage = serializers.CharField(source="package.max_upload_size", read_only=True)
     img_gen = serializers.CharField(source="package.image_gen_enabled", read_only=True)
 
     class Meta:
         model = CustomUser
         fields = [
             "username",
-            "name",
+            "full_name",
             "email",
             "phone",
             "package_name",
