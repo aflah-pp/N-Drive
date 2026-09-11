@@ -1,33 +1,29 @@
-import os
-import uuid
 import time
-import math
-import zipfile
+
 import requests
-from io import BytesIO
-from decimal import Decimal
 from django.conf import settings
-from rest_framework import status
-from rest_framework.response import Response
+from django.db.models import Prefetch
 from django.http import FileResponse, HttpResponse
-from rest_framework.permissions import IsAuthenticated
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from .models import UserFile, Folder, Transaction, Package, EncryptedChatSession
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from .models import EncryptedChatSession, Folder, Package, Transaction, UserFile
 from .serializers import (
-    UserSerializer,
-    UserRegisterSerializer,
-    UpdateUserSerializer,
-    PackageSerializer,
-    UserFileSerializer,
     FolderSerializer,
+    PackageSerializer,
+    UpdateUserSerializer,
+    UserFileSerializer,
+    UserRegisterSerializer,
+    UserSerializer,
 )
+from .services import AIService, FileService, FolderService, PaymentService
 
-
-GROQ_API_KEY = settings.GROQ_API_KEY
-GROQ_CHAT_URL = settings.GROQ_CHAT_URL
 STABLE_HORDE_URL = settings.STABLE_HORDE_URL
 API_KEY = settings.API_KEY
+GOOGLE_API_KEY = settings.GOOGLE_API_KEY
 
 
 def get_user_tokens(user):
@@ -106,42 +102,14 @@ def update_user(request):
 @permission_classes([IsAuthenticated])
 def upload_file(request):
     user = request.user
-    package = user.package
+
     uploaded_file = request.FILES.get("file")
     folder_id = request.data.get("folder_id")
 
     if not uploaded_file:
         return Response({"error": "No file provided"}, status=400)
 
-    # Logic for Checking single file size
-    if uploaded_file.size > package.max_upload_size:
-        return Response(
-            {
-                "error": f"File too large. Max size for {package.name} is {package.max_upload_size / (1024*1024)} MB"
-            },
-            status=400,
-        )
-
-    # Logic for Checking total storage quota
-    total_used = sum(f.size for f in user.files.all())
-    if total_used + uploaded_file.size > package.max_upload_size:
-        return Response(
-            {"error": "You exceeded your package storage limit"}, status=400
-        )
-
-    folder = None
-    if folder_id:
-        folder = Folder.objects.filter(id=folder_id, user=user).first()
-        if not folder:
-            return Response({"error": "Folder not found"}, status=404)
-
-    user_file = UserFile.objects.create(
-        user=user,
-        file=uploaded_file,
-        filename=uploaded_file.name,
-        size=uploaded_file.size,
-        parent_folder=folder,
-    )
+    user_file = FileService.upload_file(user=user, uploaded_file=uploaded_file, folder_id=folder_id)
 
     serializer = UserFileSerializer(user_file, context={"request": request})
     return Response({"message": "File uploaded successfully", "file": serializer.data})
@@ -152,35 +120,24 @@ def upload_file(request):
 def create_folder(request):
     user = request.user
     folder_name = request.data.get("name")
-    if not folder_name:
-        return Response({"error": "Folder name required"}, status=400)
+    folder = FolderService.create_folder(user=user, name=folder_name)
+    if isinstance(folder, ValueError):
+        return Response({"error": "Name is Required"}, status=status.HTTP_400_BAD_REQUEST)
 
-    folder = Folder.objects.create(user=user, name=folder_name)
     serializer = FolderSerializer(folder, context={"request": request})
     return Response({"message": "Folder created", "folder": serializer.data})
 
 
 @api_view(["GET"])
 def download_folder(request, unique_link):
-    folder = Folder.objects.filter(unique_link=unique_link).first()
-    if not folder:
-        return HttpResponse("Folder not found", status=404)
+    result = FolderService.download_folder(unique_link=unique_link)
 
-    files = folder.files.all()
-    if not files.exists():
-        return HttpResponse("No files in folder", status=404)
+    if isinstance(result, LookupError):
+        return Response({"error": "Folder Not Found"}, status=status.HTTP_404_NOT_FOUND)
+    if isinstance(result, ValueError):
+        return Response({"error": "No files Found in this Folder."}, status=status.HTTP_400_BAD_REQUEST)
+    zip_buffer, folder = result
 
-    # In-memory zip
-    zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for f in files:
-            file_path = f.file.path
-            filename = os.path.basename(file_path)
-            zip_file.write(file_path, arcname=filename)
-
-    zip_buffer.seek(0)
-
-    # Return zip file  as attachment
     response = HttpResponse(zip_buffer, content_type="application/zip")
     response["Content-Disposition"] = f'attachment; filename="{folder.name}.zip"'
     return response
@@ -188,12 +145,11 @@ def download_folder(request, unique_link):
 
 @api_view(["GET"])
 def download_file(request, unique_link):
-    file_obj = UserFile.objects.filter(unique_link=unique_link).first()
-    if not file_obj:
-        return HttpResponse("File not found", status=404)
+    result = FileService.download_file(unique_link=unique_link)
+    if isinstance(result, LookupError):
+        return Response({"error": "File Not Found"}, status=status.HTTP_404_NOT_FOUND)
 
-    file_path = file_obj.file.path
-    file_handle = open(file_path, "rb")
+    file_handle, file_obj = result
     response = FileResponse(file_handle, content_type="application/octet-stream")
     response["Content-Disposition"] = f'attachment; filename="{file_obj.filename}"'
     return response
@@ -204,16 +160,14 @@ def download_file(request, unique_link):
 def get_all_storage(request):
     user = request.user
     # All folders
-    folders = Folder.objects.filter(user=user)
+    folders = Folder.objects.prefetch_related(
+        Prefetch("files", queryset=UserFile.objects.filter(user=user, is_deleted=False))
+    ).filter(user=user, is_deleted=False)
     # Files directly in root directory
-    root_files = UserFile.objects.filter(user=user, parent_folder__isnull=True)
+    root_files = UserFile.objects.filter(user=user, parent_folder__isnull=True, is_deleted=False)
 
-    folder_serializer = FolderSerializer(
-        folders, many=True, context={"request": request}
-    )
-    file_serializer = UserFileSerializer(
-        root_files, many=True, context={"request": request}
-    )
+    folder_serializer = FolderSerializer(folders, many=True, context={"request": request})
+    file_serializer = UserFileSerializer(root_files, many=True, context={"request": request})
 
     return Response({"folders": folder_serializer.data, "files": file_serializer.data})
 
@@ -242,11 +196,7 @@ def get_storage_usage(request):
     remaining_mb = to_mb(remaining_bytes)
     total_mb = to_mb(total_storage_bytes)
 
-    used_percentage = (
-        round((total_used_bytes / total_storage_bytes) * 100, 2)
-        if total_storage_bytes > 0
-        else 0
-    )
+    used_percentage = round((total_used_bytes / total_storage_bytes) * 100, 2) if total_storage_bytes > 0 else 0
 
     return Response(
         {
@@ -267,30 +217,16 @@ def delete_item(request):
 
     # Delete Folder and its files if have any.
     if folder_id:
-        folder = Folder.objects.filter(id=folder_id, user=user).first()
-        if not folder:
-            return Response({"error": "Folder not found"}, status=404)
-
-        # Delete files inside folder
-        folder_files = folder.files.all()
-        for f in folder_files:
-            if f.file:
-                if os.path.exists(f.file.path):
-                    os.remove(f.file.path)
-            f.delete()
-
-        folder.delete()
+        FolderService.delete_folder(user=user, folder_id=folder_id)
+        if isinstance(folder_id, LookupError):
+            return Response({"error": "Folder not Found"})
         return Response({"message": "Folder and its files deleted successfully"})
 
     # Delete Single File
     if file_id:
-        file_obj = UserFile.objects.filter(id=file_id, user=user).first()
-        if not file_obj:
-            return Response({"error": "File not found"}, status=404)
-
-        if file_obj.file and os.path.exists(file_obj.file.path):
-            os.remove(file_obj.file.path)
-        file_obj.delete()
+        FileService.delete_file(user=user, file_id=file_id)
+        if isinstance(file_id, LookupError):
+            return Response({"error": "File not Found"})
         return Response({"message": "File deleted successfully"})
 
     return Response({"error": "Provide either folder_id or file_id"}, status=400)
@@ -303,42 +239,12 @@ def initiate_payment(request):
     Step 1: User selects a package → backend creates a Transaction
     Returns a mock payment link with payment status.
     """
+    user = request.user
     package_id = request.data.get("package_id")
 
-    try:
-        package = Package.objects.get(id=package_id)
-    except Package.DoesNotExist:
-        return Response({"error": "Invalid package ID"}, status=404)
+    result = PaymentService.initiate(user=user, package_id=package_id)
 
-    total_amount = Decimal(package.price)
-    tax = total_amount * Decimal("0.03")
-    total_amount = Decimal(math.ceil(total_amount + tax))
-
-    # Create transaction
-    tx_ref = str(uuid.uuid4())
-    order_id = f"order_{tx_ref[:8]}"
-
-    Transaction.objects.create(
-        ref=tx_ref,
-        user=request.user,
-        package=package,
-        amount=total_amount,
-        status="pending",
-    )
-
-    payment_link = (
-        f"/payment?order_id={order_id}&amount={total_amount}"
-    )
-
-    return Response(
-        {
-            "payment_link": payment_link,
-            "order_id": order_id,
-            "amount": total_amount,
-            "package": package.name,
-            "message": "Payment initiated successfully",
-        }
-    )
+    return Response({"status": "Completed", "result": result}, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])
@@ -346,37 +252,13 @@ def initiate_payment(request):
 def payment_status(request):
     order_id = request.data.get("order_id")
     payment_status = request.data.get("status")  # status "success" or "failed"
-
+    user = request.user
     if not order_id or not payment_status:
         return Response({"error": "Missing order_id or status"}, status=400)
 
     try:
-        tx_ref = order_id[6:]
-        transaction = Transaction.objects.get(ref__startswith=tx_ref)
-        user = request.user
-        package = transaction.package
-
-        if payment_status == "success":
-            transaction.status = "completed"
-            user.package = (
-                package  # Assign  user the purchased package if transaction is success
-            )
-            user.save()
-            success_url = f"/payment-status?order_id={order_id}&status=success"
-        else:
-            transaction.status = "failed"
-            success_url = f"/payment-status?order_id={order_id}&status=failed"
-
-        transaction.save()
-
-        return Response(
-            {
-                "order_id": order_id,
-                "status": transaction.status,
-                "redirect_url": success_url,
-                "message": f"Payment {transaction.status}",
-            }
-        )
+        result = PaymentService.status(user=user, orderId=order_id, payment_status=payment_status)
+        return Response({"status": "Completed", "result": result}, status=status.HTTP_200_OK)
 
     except Transaction.DoesNotExist:
         return Response({"error": "Transaction not found"}, status=404)
@@ -396,82 +278,16 @@ def chat_ai(request):
     if not message:
         return Response({"error": "Message required"}, status=400)
 
-    package = getattr(user, "package", None)
-    if not package or not getattr(package, "chat_enabled", False):
-        return Response({"error": "Chat AI not enabled for your package"}, status=403)
-
-    model_id = (
-        "llama-3.3-70b-versatile"
-        if user.package.name.lower() == "pro"
-        else "groq/compound-mini"
-    )
+    modelId = "gemini-3.6-flash"
+    # model_id = "gemini-3.8-flash"
 
     try:
-        # Load existing conversation
-        chat = EncryptedChatSession.objects.filter(user=user).first()
-        if chat:
-            try:
-                conversation = chat.get_conversation()
-            except Exception:
-                conversation = []
-        else:
-            conversation = []
-
-        # Clean invalid or malformed messages
-        conversation = [
-            m
-            for m in conversation
-            if isinstance(m, dict)
-            and "role" in m
-            and "content" in m
-            and isinstance(m["role"], str)
-            and isinstance(m["content"], str)
-        ]
-
-        # Append the new user message
-        conversation.append({"role": "user", "content": message})
-
-        # Limit history
-        conversation = conversation[-15:]
-
-        # Add system prompt once + user conversation
-        messages = [
-            {"role": "system", "content": "You are a helpful AI assistant."}
-        ] + conversation
-
-        # Send to ai
-        payload = {"model": model_id, "messages": messages}
-        headers = {
-            "Authorization": f"Bearer {GROQ_API_KEY}",
-            "Content-Type": "application/json",
-        }
-
-        response = requests.post(GROQ_CHAT_URL, headers=headers, json=payload)
-        if response.status_code != 200:
-            return Response(
-                {
-                    "error": f"Groq API error {response.status_code}",
-                    "details": response.text,
-                },
-                status=500,
-            )
-
-        data = response.json()
-        reply = data["choices"][0]["message"]["content"]
-
-        # Append reply and save conversation
-        conversation.append({"role": "assistant", "content": reply})
-        if chat:
-            chat.set_conversation(conversation)
-        else:
-            chat = EncryptedChatSession.objects.create(user=user)
-            chat.set_conversation(conversation)
-
-        # Return AI reply
+        result = AIService.send_message(user=user, message=message, modelId=modelId)
+        reply, conversation = result
         return Response({"reply": reply, "conversation": conversation}, status=200)
 
     except Exception as e:
-        return Response({"error": str(e)}, status=500)
+        return Response({"error": f"Google SDK Exception: {e!s}"}, status=500)
 
 
 @api_view(["POST"])
@@ -485,9 +301,7 @@ def generate_image(request):
 
     package = getattr(user, "package", None)
     if not package or not getattr(package, "image_gen_enabled", False):
-        return Response(
-            {"error": "Image generation not enabled for your package"}, status=403
-        )
+        return Response({"error": "Image generation not enabled for your package"}, status=403)
 
     try:
         payload = {
@@ -548,22 +362,17 @@ def save_chat_session(request):
         return Response({"error": "conversation is required"}, status=400)
 
     try:
-        # get existing chat or create a new one
-        chat, created = EncryptedChatSession.objects.get_or_create(user=user)
+        session, created = AIService.save_session(user=user, conversation=conversation)
 
-        # merge old conversation with new one instead of overwriting
         try:
-            old_conversation = chat.get_conversation()
+            old_conversation = AIService.get_conversation(session=session)
         except Exception:
             old_conversation = []
 
-        # merge both conversations
         merged_conversation = old_conversation + conversation
-        chat.set_conversation(merged_conversation)
+        AIService.save_conversation(session=session, conversation=merged_conversation)
 
-        return Response(
-            {"message": "Chat saved successfully", "created": created}, status=200
-        )
+        return Response({"message": "Chat saved successfully", "created": created}, status=200)
 
     except Exception as e:
         return Response({"error": str(e)}, status=500)
@@ -578,7 +387,7 @@ def get_chat_history(request):
         if not chat:
             return Response({"conversation": []}, status=200)
 
-        data = chat.get_conversation()
+        data = AIService.get_conversation(session=chat)
         return Response({"conversation": data}, status=200)
     except Exception as e:
         return Response({"error": str(e)}, status=500)
@@ -588,5 +397,6 @@ def get_chat_history(request):
 @permission_classes([IsAuthenticated])
 def reset_chat_session(request):
     """Reset the user's chat session"""
-    EncryptedChatSession.objects.filter(user=request.user).delete()
+    user = request.user
+    AIService.reset_session(user=user)
     return Response({"message": "Chat session reset"}, status=200)
