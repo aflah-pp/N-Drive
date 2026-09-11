@@ -1,6 +1,6 @@
-import React, { useContext, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { AuthContext } from '../context/AuthContext'
+import React, { useContext, useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { AuthContext } from "../context/AuthContext";
 import {
   FaFolder,
   FaRobot,
@@ -13,48 +13,47 @@ import {
   FaSignOutAlt,
   FaUserCircle,
   FaRupeeSign,
-} from 'react-icons/fa'
-import { CgFileDocument } from 'react-icons/cg'
-import NavLink from './NavLink'
+} from "react-icons/fa";
+import { CgFileDocument } from "react-icons/cg";
+import NavLink from "./NavLink";
 
 function Sidebar() {
-  const { isAuthorized, setIsAuthorized, username, storage, permission } =
-    useContext(AuthContext)
-  const location = useLocation()
-  const [loading, setLoading] = useState(false)
-  const [isOpen, setIsOpen] = useState(false)
+  const { isAuthorized, setIsAuthorized, username, storage, permission } = useContext(AuthContext);
+  const location = useLocation();
+  const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   const navItems = [
-    { name: 'My Drive', path: '/', icon: <FaFolder /> },
+    { name: "My Drive", path: "/", icon: <FaFolder /> },
     {
-      name: 'Chat AI',
-      path: '/chat',
+      name: "Chat AI",
+      path: "/chat",
       icon: <FaRobot />,
       enabled: permission?.chat ?? false,
     },
     {
-      name: 'Image Gen',
-      path: '/img-gen',
+      name: "Image Gen",
+      path: "/img-gen",
       icon: <FaImage />,
       enabled: permission?.image ?? false,
     },
-    { name: 'Pricing', path: '/pricing', icon: <FaRupeeSign /> },
-    { name: 'Doc', path: '/doc', icon: <CgFileDocument /> },
-  ]
+    { name: "Pricing", path: "/pricing", icon: <FaRupeeSign /> },
+    { name: "Doc", path: "/doc", icon: <CgFileDocument /> },
+  ];
 
-  const handleNavClick = path => {
-    setLoading(true)
-    setTimeout(() => setLoading(false), 300)
-    setIsOpen(false)
-  }
+  const handleNavClick = (path) => {
+    setLoading(true);
+    setTimeout(() => setLoading(false), 300);
+    setIsOpen(false);
+  };
 
   const handleLogout = () => {
-    localStorage.removeItem('access')
-    localStorage.removeItem('refresh')
-    setIsAuthorized(false)
-    setIsOpen(false)
-    window.location.reload()
-  }
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
+    setIsAuthorized(false);
+    setIsOpen(false);
+    window.location.reload();
+  };
 
   return (
     <>
@@ -72,17 +71,13 @@ function Sidebar() {
       {/* Sidebar */}
       <aside
         className={`fixed top-16 md:top-0 left-0 bg-[#dbc2a6] w-64 h-full md:h-[100vh] shadow-lg p-6 flex flex-col gap-8 transition-transform duration-300 z-40
-          ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}
+          ${isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}`}
       >
-        <h2 className="hidden md:block text-2xl font-bold text-[#414a37]">
-          N-Drive
-        </h2>
+        <h2 className="hidden md:block text-2xl font-bold text-[#414a37]">N-Drive</h2>
 
         {/* Storage */}
         <div className="flex flex-col gap-2 mt-4 md:mt-0">
-          <span className="text-[#414a37] font-medium tracking-wide">
-            Storage
-          </span>
+          <span className="text-[#414a37] font-medium tracking-wide">Storage</span>
           <div className="w-full bg-[#99744a]/30 rounded-full h-4 overflow-hidden">
             <div
               className="bg-[#99744a] h-4 transition-all duration-500"
@@ -100,9 +95,9 @@ function Sidebar() {
 
         {/* Navigation */}
         <nav className="flex flex-col gap-3 mt-6">
-          {navItems.map(item => {
-            const isActive = location.pathname === item.path
-            const isDisabled = item.enabled === false
+          {navItems.map((item) => {
+            const isActive = location.pathname === item.path;
+            const isDisabled = item.enabled === false;
 
             return isDisabled ? (
               <div
@@ -126,13 +121,13 @@ function Sidebar() {
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg font-medium transition
         ${
           isActive
-            ? 'bg-[#99744a]/20 text-[#414a37]'
-            : 'text-[#414a37] hover:bg-[#99744a]/20 hover:text-[#99744a]'
+            ? "bg-[#99744a]/20 text-[#414a37]"
+            : "text-[#414a37] hover:bg-[#99744a]/20 hover:text-[#99744a]"
         }`}
               >
                 <span
                   className={`text-lg transition-transform duration-300 ${
-                    isActive ? 'text-[#99744a] scale-110' : 'text-[#414a37]'
+                    isActive ? "text-[#99744a] scale-110" : "text-[#414a37]"
                   }`}
                 >
                   {item.icon}
@@ -142,7 +137,7 @@ function Sidebar() {
                   <FaSpinner className="animate-spin ml-auto text-[#99744a]" />
                 )}
               </Link>
-            )
+            );
           })}
 
           {/* Profile + Logout */}
@@ -154,9 +149,7 @@ function Sidebar() {
                 className="flex items-center mt-20 gap-2 px-3 py-2 rounded-lg bg-[#99744a]/20 border border-[#99744a]/40 shadow-sm"
               >
                 <FaUserCircle className="w-5 h-5 text-[#99744a]" />
-                <span className="text-sm font-semibold text-[#414a37]">
-                  {username}
-                </span>
+                <span className="text-sm font-semibold text-[#414a37]">{username}</span>
               </Link>
 
               <button
@@ -172,18 +165,8 @@ function Sidebar() {
           {/* Auth buttons */}
           {!isAuthorized && (
             <>
-              <NavLink
-                to="/login"
-                label="Login"
-                icon={FaSignInAlt}
-                color="#99744a"
-              />
-              <NavLink
-                to="/register"
-                label="Register"
-                icon={FaUserPlus}
-                color="#99744a"
-              />
+              <NavLink to="/login" label="Login" icon={FaSignInAlt} color="#99744a" />
+              <NavLink to="/register" label="Register" icon={FaUserPlus} color="#99744a" />
             </>
           )}
         </nav>
@@ -202,7 +185,7 @@ function Sidebar() {
         ></div>
       )}
     </>
-  )
+  );
 }
 
-export default Sidebar
+export default Sidebar;
