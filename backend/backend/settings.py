@@ -123,7 +123,6 @@ SIMPLE_JWT = {
 
 # Environment Variables
 FERNET_KEY = os.environ.get("KEY")
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 STABLE_HORDE_URL = os.environ.get("STABLE_HORDE_URL")
 API_KEY = os.environ.get("API_KEY")
