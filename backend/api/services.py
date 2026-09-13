@@ -83,7 +83,7 @@ class PackageService:
             "used_storage": f"{used_mb}Mb",
             "remaining_storage": f"{remaining_mb}Mb",
             "total_storage": f"{total_mb}Mb",
-            "used_percentage": used_percentage,
+            "used_percentage": f"{used_percentage}%" if used_percentage < 100 else "over quota",
         }
         return response
 
