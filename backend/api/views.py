@@ -13,6 +13,7 @@ from .models import EncryptedChatSession, Folder, Package, Transaction, UserFile
 from .serializers import (
     FolderSerializer,
     PackageSerializer,
+    SubscriptionSerializer,
     UpdateUserSerializer,
     UserFileSerializer,
     UserRegisterSerializer,
@@ -46,8 +47,10 @@ def register_user(request):
 @permission_classes([IsAuthenticated])
 def get_self(request):
     user = request.user
-    serializer = UserSerializer(user)
-    return Response({"user": serializer.data})
+    user_serializer = UserSerializer(user)
+    active_sub = AccountService.get_active_sub(user=user)
+    subscription_data = SubscriptionSerializer(active_sub).data if active_sub else None
+    return Response({"user": {**user_serializer.data, "subscription": subscription_data}})
 
 
 @api_view(["PUT"])

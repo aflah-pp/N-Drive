@@ -30,7 +30,12 @@ class AccountService:
         subscription = (
             user.subscriptions.filter(status=Subscription.SubscriptionStatus.ACTIVE).select_related("package").first()
         )
-        package = subscription.package if subscription else None
+        return subscription
+
+    @staticmethod
+    def get_active_package(*, user):
+        sub = AccountService.get_active_sub(user=user)
+        package = sub.package if sub else None
         return package
 
     @staticmethod
@@ -59,7 +64,7 @@ class PackageService:
     @staticmethod
     def storage_usage(*, user):
         max_allowed_storage_bytes = DEFAULT_USER_STORAGE
-        package = AccountService.get_active_sub(user=user)
+        package = AccountService.get_active_package(user=user)
         if package is not None:
             max_allowed_storage_bytes = package.max_upload_size
         total_used_bytes = sum(f.size for f in user.files.filter(is_deleted=False))
@@ -182,7 +187,7 @@ class FileService:
     @staticmethod
     @transaction.atomic()
     def upload_file(*, user, uploaded_file, folder_id=None):
-        package = AccountService.get_active_sub(user=user)
+        package = AccountService.get_active_package(user=user)
 
         max_upload_size = package.max_upload_size if package is not None else DEFAULT_USER_STORAGE
         if uploaded_file.size > max_upload_size:
