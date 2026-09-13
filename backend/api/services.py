@@ -4,6 +4,7 @@ import os
 import time
 import uuid
 import zipfile
+from datetime import timedelta
 from decimal import Decimal
 from io import BytesIO
 
@@ -15,12 +16,44 @@ from django.utils import timezone
 from google import genai
 from google.genai import types
 from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import EncryptedChatSession, Folder, Package, Transaction, UserFile
+from .models import CustomUser, EncryptedChatSession, Folder, Package, Subscription, Transaction, UserFile
+
+DEFAULT_USER_STORAGE = 250 * 1024 * 1024
 
 
 class AccountService:
-    pass
+
+    @staticmethod
+    def get_active_sub(*, user):
+        subscription = (
+            user.subscriptions.filter(status=Subscription.SubscriptionStatus.ACTIVE).select_related("package").first()
+        )
+        return subscription
+
+    @staticmethod
+    def get_active_package(*, user):
+        sub = AccountService.get_active_sub(user=user)
+        package = sub.package if sub else None
+        return package
+
+    @staticmethod
+    def get_user_tokens(user):
+        refresh = RefreshToken.for_user(user)
+        return {"refresh": str(refresh), "access": str(refresh.access_token)}
+
+    @staticmethod
+    @transaction.atomic
+    def create(validated_data):
+        validated_data.pop("password2")
+        password = validated_data.pop("password")
+        user = CustomUser(**validated_data)
+        user.set_password(password)
+        user.save()
+
+        token = AccountService.get_user_tokens(user)
+        return user, token
 
 
 class PackageService:
@@ -29,10 +62,12 @@ class PackageService:
         return round(size_in_bytes / (1024 * 1024), 2)
 
     @staticmethod
-    def storage_usage(*, user, package):
-
-        max_allowed_storage_bytes = package.max_upload_size if package else None
-        total_used_bytes = sum(f.size for f in user.files.all())
+    def storage_usage(*, user):
+        max_allowed_storage_bytes = DEFAULT_USER_STORAGE
+        package = AccountService.get_active_package(user=user)
+        if package is not None:
+            max_allowed_storage_bytes = package.max_upload_size
+        total_used_bytes = sum(f.size for f in user.files.filter(is_deleted=False))
 
         remaining_bytes = max_allowed_storage_bytes - total_used_bytes
         remaining_bytes = max(remaining_bytes, 0)
@@ -48,11 +83,9 @@ class PackageService:
             "used_storage": f"{used_mb}Mb",
             "remaining_storage": f"{remaining_mb}Mb",
             "total_storage": f"{total_mb}Mb",
-            "used_percentage": used_percentage,
+            "used_percentage": f"{used_percentage}%" if used_percentage < 100 else "over quota",
         }
         return response
-
-    pass
 
 
 class PaymentService:
@@ -91,11 +124,46 @@ class PaymentService:
     @transaction.atomic
     def status(*, user, orderId, payment_status):
         tx_ref = orderId[6:]
-        transaction = Transaction.objects.get(ref__startswith=tx_ref)
+        transaction = Transaction.objects.select_for_update().get(ref__startswith=tx_ref)
+        if transaction.status in ["completed", "failed"]:
+            return {
+                "order_id": orderId,
+                "status": transaction.status,
+                "redirect_url": f"/payment-status?order_id={orderId}&status={transaction.status}",
+                "message": f"Payment already processed as {transaction.status}",
+            }
         package = transaction.package
 
         if payment_status == "success":
+            active_sub_exists = Subscription.objects.filter(
+                user=user, status=Subscription.SubscriptionStatus.ACTIVE
+            ).exists()
+
+            if active_sub_exists:
+                subscription = Subscription.objects.get(user=user, status=Subscription.SubscriptionStatus.ACTIVE)
+                active_from_date = subscription.active_to
+                active_to_date = active_from_date + timedelta(days=package.plan_validity)
+
+                sub = Subscription.objects.create(
+                    user=user,
+                    package=package,
+                    active_from=active_from_date,
+                    active_to=active_to_date,
+                    status="ON_QUEUE",
+                )
+            else:
+                active_to_date = timezone.now().date() + timedelta(days=package.plan_validity)
+
+                sub = Subscription.objects.create(
+                    user=user,
+                    package=package,
+                    active_from=timezone.now().date(),
+                    active_to=active_to_date,
+                    status="ACTIVE",
+                )
+
             transaction.status = "completed"
+            transaction.subscription = sub
             user.package = package
             user.save()
 
@@ -119,17 +187,16 @@ class FileService:
     @staticmethod
     @transaction.atomic()
     def upload_file(*, user, uploaded_file, folder_id=None):
-        package = user.package
+        package = AccountService.get_active_package(user=user)
 
-        if not package:
-            raise ValueError("You have no Active Package")
-        if uploaded_file.size > package.max_upload_size:
+        max_upload_size = package.max_upload_size if package is not None else DEFAULT_USER_STORAGE
+        if uploaded_file.size > max_upload_size:
             raise ValueError(
-                f"File too large.Max Size for {package.name} is {package.max_upload_size / (1024 * 1024):.2f} mb"
+                f"File too large.Max Size for {package.name if package is not None else "Free"} is {max_upload_size / (1024 * 1024):.2f} mb"
             )
         total_used = sum(file.size for file in user.files.all())
 
-        if total_used + uploaded_file.size > package.max_upload_size:
+        if total_used + uploaded_file.size > max_upload_size:
             raise ValueError("You  exceeded your package allowed storage ")
 
         folder = None
@@ -328,3 +395,7 @@ class AIService:
         img_b64 = r_data.get("generations", [{}])[0].get("img")
 
         return img_b64
+
+
+class BinService:
+    pass

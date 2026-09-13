@@ -1,13 +1,6 @@
 from django.contrib import admin
 
-from .models import (
-    CustomUser,
-    EncryptedChatSession,
-    Folder,
-    Package,
-    Transaction,
-    UserFile,
-)
+from .models import CustomUser, EncryptedChatSession, Folder, Package, Subscription, Transaction, UserFile
 
 
 class CustomUserAdmin(admin.ModelAdmin):
@@ -112,5 +105,5 @@ class FolderAdmin(admin.ModelAdmin):
 
 admin.site.register(Folder, FolderAdmin)
 admin.site.register(UserFile)
-admin.site.register(Transaction)
+admin.site.register([Transaction, Subscription])
 admin.site.register(EncryptedChatSession)

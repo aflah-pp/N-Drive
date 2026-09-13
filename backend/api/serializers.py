@@ -1,6 +1,42 @@
 from rest_framework import serializers
 
-from .models import CustomUser, EncryptedChatSession, Folder, Package, UserFile
+from .models import CustomUser, EncryptedChatSession, Folder, Package, Subscription, UserFile
+
+
+class MiniPackageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Package
+        fields = [
+            "id",
+            "name",
+            "plan_validity",
+            "max_upload_size",
+            "chat_enabled",
+            "image_gen_enabled",
+        ]
+
+
+class PackageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Package
+        fields = [
+            "id",
+            "name",
+            "plan_validity",
+            "max_upload_size",
+            "price",
+            "chat_enabled",
+            "image_gen_enabled",
+            "description",
+        ]
+
+
+class SubscriptionSerializer(serializers.ModelSerializer):
+    package = MiniPackageSerializer(read_only=True)
+
+    class Meta:
+        model = Subscription
+        fields = ["package", "active_from", "active_to", "status", "created_at"]
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
@@ -25,21 +61,9 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("passwords are not matching")
         return attrs
 
-    def create(self, validated_data):
-        validated_data.pop("password2")
-        password = validated_data.pop("password")
-        user = CustomUser(**validated_data)
-        user.set_password(password)
-        user.save()
-        return user
-
 
 class UserSerializer(serializers.ModelSerializer):
-    full_name = serializers.CharField(read_only=True)
-    package_name = serializers.CharField(source="package.name", read_only=True)
-    chat = serializers.CharField(source="package.chat_enabled", read_only=True)
-    max_storage = serializers.CharField(source="package.max_upload_size", read_only=True)
-    img_gen = serializers.CharField(source="package.image_gen_enabled", read_only=True)
+    full_name = serializers.CharField(source="get_full_name", read_only=True)
 
     class Meta:
         model = CustomUser
@@ -48,29 +72,14 @@ class UserSerializer(serializers.ModelSerializer):
             "full_name",
             "email",
             "phone",
-            "package_name",
-            "max_storage",
-            "chat",
-            "img_gen",
         ]
+    
 
 
 class UpdateUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ["username", "first_name", "last_name", "phone"]
-
-        def update(self, instance, validated_data):
-            for attr, value in validated_data.items():
-                setattr(attr, instance, value)
-            instance.save()
-            return instance
-
-
-class PackageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Package
-        fields = ["id", "name", "price"]
 
 
 class UserFileSerializer(serializers.ModelSerializer):
@@ -139,9 +148,3 @@ class EncryptedChatSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = EncryptedChatSession
         fields = ["id", "conversation", "created_at"]
-
-    def get_conversation(self, obj):
-        try:
-            return obj.get_conversation()
-        except Exception:
-            return []  # fallback in case of bad data

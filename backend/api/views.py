@@ -8,94 +8,131 @@ from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import EncryptedChatSession, Folder, Package, Transaction, UserFile
 from .serializers import (
     FolderSerializer,
     PackageSerializer,
+    SubscriptionSerializer,
     UpdateUserSerializer,
     UserFileSerializer,
     UserRegisterSerializer,
     UserSerializer,
 )
-from .services import AIService, FileService, FolderService, PackageService, PaymentService
+from .services import AccountService, AIService, FileService, FolderService, PackageService, PaymentService
 
 STABLE_HORDE_URL = settings.STABLE_HORDE_URL
 API_KEY = settings.API_KEY
 GOOGLE_API_KEY = settings.GOOGLE_API_KEY
 
 
-def get_user_tokens(user):
-    refresh = RefreshToken.for_user(user)
-    return {"refresh": str(refresh), "access": str(refresh.access_token)}
+@api_view(["POST"])
+def register_user(request):
+    serializer = UserRegisterSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
 
+    user, token = AccountService.create(serializer.validated_data)
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_self_name(request):
-    return Response({"username": request.user.username})
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_self_package(request):
-    return Response({"package": request.user.package.name})
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_self_package_permissions(request):
     return Response(
         {
-            "chat": request.user.package.chat_enabled,
-            "image": request.user.package.image_gen_enabled,
-        }
+            "message": "User Created SuccessFully",
+            "user": UserSerializer(user).data,
+            "token": token,
+        },
+        status=status.HTTP_201_CREATED,
     )
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_package_details(request):
-    packages = Package.objects.all()
-    serializer = PackageSerializer(packages, many=True)
-    return Response(serializer.data)
 
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_self(request):
     user = request.user
-    serializer = UserSerializer(user)
-    return Response({"user": serializer.data})
-
-
-@api_view(["POST"])
-def register_user(request):
-    serializer = UserRegisterSerializer(data=request.data)
-    if serializer.is_valid():
-        user = serializer.save()
-        token = get_user_tokens(user)
-        return Response(
-            {
-                "message": "User Created SuccessFully",
-                "user": serializer.data,
-                "token": token,
-            },
-            status=status.HTTP_201_CREATED,
-        )
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    user_serializer = UserSerializer(user)
+    active_sub = AccountService.get_active_sub(user=user)
+    subscription_data = SubscriptionSerializer(active_sub).data if active_sub else None
+    return Response({"user": {**user_serializer.data, "subscription": subscription_data}})
 
 
 @api_view(["PUT"])
 @permission_classes([IsAuthenticated])
 def update_user(request):
+    serializer = UpdateUserSerializer(user=request.date, data=request.data, partial=True)
+    serializer.is_valid(raise_exception=True)
+    user = serializer.save()
+
+    return Response(
+        {"message": "User Updated SuccessFully", "user": UserSerializer(user).data}, status=status.HTTP_200_OK
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_package_details(request):
+    packages = Package.objects.filter(is_active=True)
+    serializer = PackageSerializer(packages, many=True)
+    return Response(serializer.data)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def initiate_payment(request):
+    """
+    Step 1: User selects a package → backend creates a Transaction
+    Returns a mock payment link with payment status.
+    """
     user = request.user
-    serializer = UpdateUserSerializer(user, data=request.data, partial=True)
-    if serializer.is_valid():
-        serializer.save()
-        return Response({"message": "User Updated", "user": serializer.data})
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    package_id = request.data.get("package_id")
+
+    result = PaymentService.initiate(user=user, package_id=package_id)
+
+    return Response({"status": "Completed", "result": result}, status=status.HTTP_200_OK)
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated])
+def payment_status(request):
+    order_id = request.data.get("order_id")
+    payment_status = request.data.get("status")
+
+    if not payment_status:
+        payment_status = "failed"
+
+    user = request.user
+
+    if not order_id:
+        return Response({"error": "Missing order_id "}, status=400)
+
+    try:
+        result = PaymentService.status(user=user, orderId=order_id, payment_status=payment_status)
+        return Response({"status": "Completed", "result": result}, status=status.HTTP_200_OK)
+
+    except Transaction.DoesNotExist:
+        return Response({"error": "Transaction not found"}, status=404)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_all_storage(request):
+    user = request.user
+    # All folders
+    folders = Folder.objects.prefetch_related(
+        Prefetch("files", queryset=UserFile.objects.filter(user=user, is_deleted=False))
+    ).filter(user=user, is_deleted=False)
+    # Files directly in root directory
+    root_files = UserFile.objects.filter(user=user, parent_folder__isnull=True, is_deleted=False)
+
+    folder_serializer = FolderSerializer(folders, many=True, context={"request": request})
+    file_serializer = UserFileSerializer(root_files, many=True, context={"request": request})
+
+    return Response({"folders": folder_serializer.data, "files": file_serializer.data})
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_storage_usage(request):
+    user = request.user
+    result = PackageService.storage_usage(user=user)
+    return Response({"message": "Success", "result": result}, status=status.HTTP_200_OK)
 
 
 @api_view(["POST"])
@@ -155,36 +192,6 @@ def download_file(request, unique_link):
     return response
 
 
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_all_storage(request):
-    user = request.user
-    # All folders
-    folders = Folder.objects.prefetch_related(
-        Prefetch("files", queryset=UserFile.objects.filter(user=user, is_deleted=False))
-    ).filter(user=user, is_deleted=False)
-    # Files directly in root directory
-    root_files = UserFile.objects.filter(user=user, parent_folder__isnull=True, is_deleted=False)
-
-    folder_serializer = FolderSerializer(folders, many=True, context={"request": request})
-    file_serializer = UserFileSerializer(root_files, many=True, context={"request": request})
-
-    return Response({"folders": folder_serializer.data, "files": file_serializer.data})
-
-
-@api_view(["GET"])
-@permission_classes([IsAuthenticated])
-def get_storage_usage(request):
-    user = request.user
-    package = user.package
-
-    try:
-        result = PackageService.storage_usage(user=user, package=package)
-        return Response({"message": "Success", "result": result}, status=status.HTTP_200_OK)
-    except Exception:
-        return Response({"error": "function not working"}, status=status.HTTP_400_BAD_REQUEST)
-
-
 @api_view(["DELETE"])
 @permission_classes([IsAuthenticated])
 def delete_item(request):
@@ -207,38 +214,6 @@ def delete_item(request):
         return Response({"message": "File deleted successfully"})
 
     return Response({"error": "Provide either folder_id or file_id"}, status=400)
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def initiate_payment(request):
-    """
-    Step 1: User selects a package → backend creates a Transaction
-    Returns a mock payment link with payment status.
-    """
-    user = request.user
-    package_id = request.data.get("package_id")
-
-    result = PaymentService.initiate(user=user, package_id=package_id)
-
-    return Response({"status": "Completed", "result": result}, status=status.HTTP_200_OK)
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def payment_status(request):
-    order_id = request.data.get("order_id")
-    payment_status = request.data.get("status")  # status "success" or "failed"
-    user = request.user
-    if not order_id or not payment_status:
-        return Response({"error": "Missing order_id or status"}, status=400)
-
-    try:
-        result = PaymentService.status(user=user, orderId=order_id, payment_status=payment_status)
-        return Response({"status": "Completed", "result": result}, status=status.HTTP_200_OK)
-
-    except Transaction.DoesNotExist:
-        return Response({"error": "Transaction not found"}, status=404)
 
 
 @api_view(["POST"])
