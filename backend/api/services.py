@@ -15,6 +15,7 @@ from django.db import transaction
 from django.utils import timezone
 from google import genai
 from google.genai import types
+from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -413,37 +414,6 @@ class AIService:
             session = EncryptedChatSession.objects.create(user=user)
             AIService.save_conversation(session=session, conversation=conversation)
         return reply, conversation
-
-    @staticmethod
-    def img_gen(*, user, prompt):
-        package = AccountService.get_active_package(user=user)
-
-        if not package.image_gen_enabled:
-            return ValueError("You have no access to Image Generation")
-        payload = {"prompt": prompt, "steps": 20, "cfg_scale": 7, "sampler_name": "k_euler", "nsfw": True}
-
-        headers = {"apikey": settings.API_KEY, "Content-Type": "application/json"}
-
-        response = requests.post(settings.STABLE_HORDE_URL, headers=headers, json=payload)
-        if response.status_code not in [200, 202]:
-            return {"error": f"stable Horde Api Error {response.status_code}", "details": response.text}
-
-        data = response.json()
-        prediction_id = data.get("id")
-
-        if not prediction_id:
-            return {"error": "No prediction ID returned"}
-
-        result_url = f"https://stablehorde.net/api/v2/generate/status/{prediction_id}"
-        while True:
-            r = requests.get(result_url, headers=headers)
-            r_data = r.json()
-            if r_data.get("done"):
-                break
-            time.sleep(2)
-        img_b64 = r_data.get("generations", [{}])[0].get("img")
-
-        return img_b64
 
 
 class BinService:

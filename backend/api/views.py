@@ -547,9 +547,8 @@ def generate_image(request):
 
     if not prompt:
         return Response({"error": "Prompt required"}, status=400)
-
-    package = getattr(user, "package", None)
-    if not package or not getattr(package, "image_gen_enabled", False):
+    package = AccountService.get_active_package(user=user)
+    if not package.image_gen_enabled:
         return Response({"error": "Image generation not enabled for your package"}, status=403)
 
     try:
