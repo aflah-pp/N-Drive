@@ -70,28 +70,14 @@ class PackageAdmin(admin.ModelAdmin):
     fieldsets = (
         (
             None,
-            {
-                "fields": (
-                    "name",
-                    "max_upload_size",
-                    "chat_enabled",
-                    "image_gen_enabled",
-                    "price",
-                )
-            },
+            {"fields": ("name", "max_upload_size", "chat_enabled", "image_gen_enabled", "price", "description")},
         ),
     )
     add_fieldsets = (
         None,
         {
             "class": ("wide",),
-            "fields": (
-                "name",
-                "max_upload_size",
-                "chat_enabled",
-                "image_gen_enabled",
-                "price",
-            ),
+            "fields": ("name", "max_upload_size", "chat_enabled", "image_gen_enabled", "price", "description"),
         },
     )
 

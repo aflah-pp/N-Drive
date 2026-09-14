@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Files{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div><h1>Files</h1><p>Total: {{ total_size|filesizeformat }}</p></div>
+  <a href="{% url 'cms:folder_list' %}" class="btn btn-secondary">Folders →</a>
+</div>
+
+<form method="get" class="filters">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search filename / user...">
+  <button type="submit" class="btn btn-secondary btn-sm">Search</button>
+</form>
+
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr><th>Filename</th><th>User</th><th>Folder</th><th>Size</th><th>Uploaded</th><th style="text-align:right;">Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for f in page_obj %}
+      <tr>
+        <td>{{ f.filename }}</td>
+        <td>{{ f.user.username }}</td>
+        <td>{{ f.parent_folder.name|default:"—" }}</td>
+        <td>{{ f.size|filesizeformat }}</td>
+        <td>{{ f.uploaded_at|date:"M d, Y" }}</td>
+        <td>
+          <div class="actions">
+            <a href="{{ f.file.url }}" target="_blank" class="btn btn-secondary btn-sm">Open</a>
+            <a href="{% url 'cms:file_delete' f.pk %}" class="btn btn-danger btn-sm">Delete</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="6"><div class="empty"><h3>No Files</h3></div></td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="pagination">
+  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&q={{ q }}">←</a>{% endif %}
+  <span class="current">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&q={{ q }}">→</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

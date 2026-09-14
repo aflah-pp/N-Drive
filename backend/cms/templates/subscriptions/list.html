@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% block title %}Subscriptions{% endblock %}
+{% block content %}
+
+
+<div class="page-header">
+  <div><h1>Subscriptions</h1><p>All user subscriptions.</p></div>
+  <a href="{% url 'cms:subscription_create' %}" class="btn btn-primary">+ New Subscription</a>
+</div>
+
+<form method="get" class="filters">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search user / package...">
+  <select name="status">
+    <option value="">All statuses</option>
+    {% for val, label in statuses %}
+      <option value="{{ val }}" {% if status == val %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+</form>
+
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr><th>User</th><th>Package</th><th>From</th><th>To</th><th>Status</th><th>Created</th><th style="text-align:right;">Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for s in page_obj %}
+      <tr>
+        <td>{{ s.user.username }}</td>
+        <td>{{ s.package.name }}</td>
+        <td>{{ s.active_from }}</td>
+        <td>{{ s.active_to }}</td>
+        <td><span class="badge {{ s.status|lower }}">{{ s.get_status_display }}</span></td>
+        <td>{{ s.created_at|date:"M d, Y" }}</td>
+        <td>
+          <div class="actions">
+            <a href="{% url 'cms:subscription_update' s.pk %}" class="btn btn-primary btn-sm">Edit</a>
+            <a href="{% url 'cms:subscription_delete' s.pk %}" class="btn btn-danger btn-sm">Delete</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="7"><div class="empty"><h3>No Subscriptions</h3></div></td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

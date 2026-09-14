@@ -1,0 +1,8 @@
+<div class="feature-list-widget">
+  <div class="feature-list-hint">
+    <span class="hint-icon">💡</span>
+    <span>One feature per line. Press <kbd>Enter</kbd> for the next one.</span>
+  </div>
+  <textarea name="{{ widget.name }}" {% include "django/forms/widgets/attrs.html" %}>
+{{ widget.value|default_if_none:"" }}</textarea>
+</div>

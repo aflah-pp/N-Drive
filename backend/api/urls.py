@@ -9,7 +9,7 @@ urlpatterns = [
     path("self/", views.get_self, name="get_user"),
     # Package Related
     path("package/", views.get_package_details, name="package_details"),
-    path("storage/", views.get_all_storage, name="get_f"),
+    path("storage/", views.get_all_storage, name="get_full_storage"),
     path("storage/usage/", views.get_storage_usage, name="get_size_usage"),
     # Create , Upload and delete related
     path("file/upload/", views.upload_file, name="upload_file"),
@@ -37,4 +37,9 @@ urlpatterns = [
     path("chat/reset/", views.reset_chat_session),
     # Img generation
     path("img/gen/", views.generate_image, name="img-generation"),
+    # Bin related
+    path("storage/bin/", views.get_bin_storage, name="get_full_bin_storage"),
+    path("bin/restore/", views.restore_bin, name="restore_bin"),
+    path("bin/restore/<str:item_type>/<uuid:item_id>/", views.restore_bin_item, name="restore_item_in_bin"),
+    path("bin/clear/", views.clear_bin, name="clear_bin"),
 ]

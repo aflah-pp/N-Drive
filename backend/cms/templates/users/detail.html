@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% block title %}{{ user_obj.username }} — Profile{% endblock %}
+{% block content %}
+
+
+<div class="page-header">
+  <div>
+    <h1>{{ user_obj.get_full_name|default:user_obj.username }}</h1>
+    <p>@{{ user_obj.username }} · {{ user_obj.email }}</p>
+  </div>
+  <div class="page-actions">
+    <a href="{% url 'cms:user_list' %}" class="btn btn-secondary">← Back</a>
+    <a href="{% url 'cms:user_update' user_obj.pk %}" class="btn btn-primary">Edit</a>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 2fr;gap:20px;">
+  <div class="card" style="background:#fff;border:1px solid #eef0f4;border-radius:14px;padding:20px;">
+    <h3 style="margin:0 0 14px;font-size:15px;">Profile</h3>
+    <p style="font-size:13px;margin:6px 0;"><strong>Username:</strong> {{ user_obj.username }}</p>
+    <p style="font-size:13px;margin:6px 0;"><strong>Email:</strong> {{ user_obj.email|default:"—" }}</p>
+    <p style="font-size:13px;margin:6px 0;"><strong>Phone:</strong> {{ user_obj.phone|default:"—" }}</p>
+    <p style="font-size:13px;margin:6px 0;"><strong>Joined:</strong> {{ user_obj.date_joined|date:"M d, Y H:i" }}</p>
+    <p style="font-size:13px;margin:6px 0;"><strong>Last login:</strong> {{ user_obj.last_login|default:"Never" }}</p>
+    <p style="font-size:13px;margin:6px 0;"><strong>Status:</strong>
+      {% if user_obj.is_active %}<span class="badge active">Active</span>{% else %}<span class="badge inactive">Inactive</span>{% endif %}
+    </p>
+    <p style="font-size:13px;margin:6px 0;"><strong>Staff:</strong> {{ user_obj.is_staff|yesno:"Yes,No" }}</p>
+    <p style="font-size:13px;margin:6px 0;"><strong>Superuser:</strong> {{ user_obj.is_superuser|yesno:"Yes,No" }}</p>
+    <hr style="margin:14px 0;border:none;border-top:1px solid #eef0f4;">
+    <p style="font-size:14px;margin:0;"><strong>Total Spent:</strong>
+      <span style="color:#059669;font-weight:700;">₹{{ total_spent|floatformat:2 }}</span>
+    </p>
+  </div>
+
+  <div>
+    <div class="table-wrapper" style="margin-bottom:20px;">
+      <div style="padding:16px 18px;border-bottom:1px solid #eef0f4;"><h3 style="margin:0;font-size:15px;">Subscriptions</h3></div>
+      <table class="data-table">
+        <thead><tr><th>Package</th><th>From</th><th>To</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for s in subscriptions %}
+          <tr>
+            <td>{{ s.package.name }}</td>
+            <td>{{ s.active_from }}</td>
+            <td>{{ s.active_to }}</td>
+            <td><span class="badge {{ s.status|lower }}">{{ s.get_status_display }}</span></td>
+          </tr>
+          {% empty %}<tr><td colspan="4" style="text-align:center;color:#9ca3af;">No subscriptions.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="table-wrapper" style="margin-bottom:20px;">
+      <div style="padding:16px 18px;border-bottom:1px solid #eef0f4;"><h3 style="margin:0;font-size:15px;">Recent Transactions</h3></div>
+      <table class="data-table">
+        <thead><tr><th>Ref</th><th>Package</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+        <tbody>
+          {% for t in transactions %}
+          <tr>
+            <td>{{ t.ref|truncatechars:14 }}</td>
+            <td>{{ t.package.name }}</td>
+            <td>₹{{ t.amount }}</td>
+            <td><span class="badge {{ t.status }}">{{ t.get_status_display }}</span></td>
+            <td>{{ t.created_at|date:"M d, Y" }}</td>
+          </tr>
+          {% empty %}<tr><td colspan="5" style="text-align:center;color:#9ca3af;">No transactions.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="table-wrapper">
+      <div style="padding:16px 18px;border-bottom:1px solid #eef0f4;"><h3 style="margin:0;font-size:15px;">Recent Files</h3></div>
+      <table class="data-table">
+        <thead><tr><th>Name</th><th>Size</th><th>Uploaded</th></tr></thead>
+        <tbody>
+          {% for f in files %}
+          <tr>
+            <td>{{ f.filename }}</td>
+            <td>{{ f.size|filesizeformat }}</td>
+            <td>{{ f.uploaded_at|date:"M d, Y" }}</td>
+          </tr>
+          {% empty %}<tr><td colspan="3" style="text-align:center;color:#9ca3af;">No files.</td></tr>{% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

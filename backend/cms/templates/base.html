@@ -1,0 +1,177 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}App Platform{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/layout.css' %}">
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+  <header class="app-header">
+    <div class="header-left">
+      <button class="hamburger-btn" id="hamburgerBtn" aria-label="Open menu">☰</button>
+      <div class="logo">
+        <span class="logo-mark">◈</span><span class="text">ControlPanel</span>
+      </div>
+    </div>
+    <div class="header-user">
+      <span class="session-info">Active Session: <strong>{{ user.username }}</strong></span>
+      <form method="post" action="{% url 'cms:logout' %}" class="logout-form">
+        {% csrf_token %}
+        <button type="submit" class="logout-btn">Log Out</button>
+      </form>
+    </div>
+  </header>
+
+  <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+  <div class="app-container">
+    <aside class="sidebar" id="sidebarContainer">
+      <button class="toggle-btn" id="sidebarToggle" aria-label="Toggle sidebar">
+        <span class="icon">☰</span>
+      </button>
+
+      <nav class="sidebar-menu">
+        <div class="menu-section">
+          <div class="menu-label">Overview</div>
+          <ul>
+            <li><a href="{% url 'cms:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+              <span class="icon">📊</span><span class="text">Dashboard</span></a></li>
+          </ul>
+        </div>
+
+        <div class="menu-section">
+          <div class="menu-label">Management</div>
+          <ul>
+            <li><a href="{% url 'cms:user_list' %}" class="{% if 'user' in request.resolver_match.url_name %}active{% endif %}">
+              <span class="icon">👥</span><span class="text">Users</span></a></li>
+            <li><a href="{% url 'cms:package_list' %}" class="{% if 'package' in request.resolver_match.url_name %}active{% endif %}">
+              <span class="icon">📦</span><span class="text">Packages</span></a></li>
+            <li><a href="{% url 'cms:subscription_list' %}" class="{% if 'subscription' in request.resolver_match.url_name %}active{% endif %}">
+              <span class="icon">🔖</span><span class="text">Subscriptions</span></a></li>
+            <li><a href="{% url 'cms:transaction_list' %}" class="{% if 'transaction' in request.resolver_match.url_name %}active{% endif %}">
+              <span class="icon">💳</span><span class="text">Transactions</span></a></li>
+          </ul>
+        </div>
+
+        <div class="menu-section">
+          <div class="menu-label">Storage</div>
+          <ul>
+            <li><a href="{% url 'cms:file_list' %}" class="{% if 'file' in request.resolver_match.url_name %}active{% endif %}">
+              <span class="icon">📄</span><span class="text">Files</span></a></li>
+            <li><a href="{% url 'cms:folder_list' %}" class="{% if 'folder' in request.resolver_match.url_name %}active{% endif %}">
+              <span class="icon">📁</span><span class="text">Folders</span></a></li>
+          </ul>
+        </div>
+
+        <div class="menu-section">
+          <div class="menu-label">System</div>
+          <ul>
+            <li><a href="{% url 'cms:audit_log' %}" class="{% if 'audit' in request.resolver_match.url_name %}active{% endif %}">
+              <span class="icon">🛡️</span><span class="text">Audit Log</span></a></li>
+            <li><a href="/admin/">
+              <span class="icon">⚙️</span><span class="text">Django Admin</span></a></li>
+          </ul>
+        </div>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      {% if messages %}
+      <div class="messages">
+        {% for m in messages %}
+          <div class="msg {{ m.tags }}">{{ m }}</div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  <script>
+    (function () {
+      const sidebar = document.getElementById('sidebarContainer');
+      const backdrop = document.getElementById('sidebarBackdrop');
+      const toggleBtn = document.getElementById('sidebarToggle');
+      const hamburgerBtn = document.getElementById('hamburgerBtn');
+      const MOBILE_BREAKPOINT = 768;
+
+      const isMobile = () => window.innerWidth <= MOBILE_BREAKPOINT;
+
+      // ---- Desktop collapse state (persisted) ----
+      if (!isMobile() && localStorage.getItem('sidebarCollapsed') === 'true') {
+        sidebar.classList.add('collapsed');
+      }
+
+      toggleBtn.addEventListener('click', () => {
+        if (isMobile()) return; // toggle hidden on mobile
+        sidebar.classList.toggle('collapsed');
+        localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+      });
+
+      // ---- Mobile drawer ----
+      function openMobileSidebar() {
+        sidebar.classList.add('mobile-open');
+        backdrop.classList.add('show');
+        document.body.classList.add('no-scroll');
+      }
+
+      function closeMobileSidebar() {
+        sidebar.classList.remove('mobile-open');
+        backdrop.classList.remove('show');
+        document.body.classList.remove('no-scroll');
+      }
+
+      hamburgerBtn.addEventListener('click', () => {
+        if (sidebar.classList.contains('mobile-open')) {
+          closeMobileSidebar();
+        } else {
+          openMobileSidebar();
+        }
+      });
+
+      backdrop.addEventListener('click', closeMobileSidebar);
+
+      // Close drawer when a link is clicked on mobile
+      sidebar.querySelectorAll('a').forEach((link) => {
+        link.addEventListener('click', () => {
+          if (isMobile()) closeMobileSidebar();
+        });
+      });
+
+      // Escape key closes drawer
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && sidebar.classList.contains('mobile-open')) {
+          closeMobileSidebar();
+        }
+      });
+
+      // Handle resize — reset states appropriately
+      let lastMobile = isMobile();
+      window.addEventListener('resize', () => {
+        const nowMobile = isMobile();
+        if (nowMobile !== lastMobile) {
+          lastMobile = nowMobile;
+          if (nowMobile) {
+            // Switched to mobile — reset desktop collapse
+            sidebar.classList.remove('collapsed');
+            closeMobileSidebar();
+          } else {
+            // Switched to desktop — restore collapsed preference
+            sidebar.classList.remove('mobile-open');
+            backdrop.classList.remove('show');
+            document.body.classList.remove('no-scroll');
+            if (localStorage.getItem('sidebarCollapsed') === 'true') {
+              sidebar.classList.add('collapsed');
+            }
+          }
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

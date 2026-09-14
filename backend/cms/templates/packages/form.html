@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+
+<style>
+  .form-card textarea.feature-list-input {
+    font-family: "SF Mono", Monaco, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    min-height: 160px;
+    padding: 14px 16px;
+    border: 1px solid var(--gray-200);
+    border-radius: 12px;
+    background: #fafbff;
+    resize: vertical;
+  }
+
+  .form-card textarea.feature-list-input:focus {
+    background: #fff;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.12);
+  }
+
+  .feature-list-hint {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    color: var(--gray-500);
+    margin-bottom: 8px;
+    background: var(--primary-light);
+    padding: 8px 12px;
+    border-radius: 9px;
+    border: 1px solid #e0e7ff;
+  }
+
+  .feature-list-hint kbd {
+    background: #fff;
+    border: 1px solid var(--gray-300);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+    font-family: monospace;
+    color: var(--gray-700);
+  }
+
+  .feature-preview {
+    margin-top: 10px;
+    background: #fff;
+    border: 1px dashed var(--gray-300);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+
+  .feature-preview h4 {
+    margin: 0 0 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--gray-500);
+    font-weight: 700;
+  }
+
+  .feature-preview ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .feature-preview li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--gray-700);
+  }
+
+  .feature-preview li::before {
+    content: "✓";
+    color: var(--success);
+    font-weight: 700;
+    font-size: 12px;
+  }
+
+  .feature-preview .empty {
+    padding: 0;
+    font-size: 12px;
+    color: var(--gray-400);
+    font-style: italic;
+  }
+  /* Size input layout */
+.size-number {
+  width: 110px !important;
+  display: inline-block !important;
+}
+
+.size-unit {
+  width: 90px !important;
+  display: inline-block !important;
+  margin-left: 8px !important;
+}
+
+.size-preview {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  background: var(--primary-light);
+  border: 1px solid #e0e7ff;
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--primary-dark);
+  font-weight: 500;
+}
+
+.size-preview-icon {
+  font-size: 15px;
+}
+
+.size-preview.muted {
+  background: var(--gray-50);
+  border-color: var(--gray-200);
+  color: var(--gray-500);
+  font-weight: 400;
+}
+</style>
+
+<div class="page-header">
+  <div><h1>{{ title }}</h1></div>
+  <a href="{% url 'cms:package_list' %}" class="btn btn-secondary">← Back</a>
+</div>
+
+<div class="form-card">
+  <form method="post">
+    {% csrf_token %}
+
+    {% for field in form %}
+      <div class="field">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<div class="helptext">{{ field.help_text }}</div>{% endif %}
+        {% if field.errors %}
+          <ul class="errorlist">
+            {% for e in field.errors %}<li>{{ e }}</li>{% endfor %}
+          </ul>
+        {% endif %}
+
+        {% if field.name == "description" %}
+          <div class="feature-preview" id="featurePreview">
+            <h4>Live Preview (stored as JSON)</h4>
+            <ul id="featurePreviewList">
+              <li class="empty">No features entered yet.</li>
+            </ul>
+          </div>
+        {% endif %}
+        {% if field.name == "max_upload_size" %}
+      <div class="size-preview" id="sizePreview">
+        <span class="size-preview-icon">📦</span>
+        <span id="sizePreviewText">Enter a value to see the size in bytes.</span>
+      </div>
+    {% endif %}
+      </div>
+    {% endfor %}
+
+    <div style="display:flex;gap:10px;margin-top:20px;">
+      <button type="submit" class="btn btn-primary">Save Package</button>
+      <a href="{% url 'cms:package_list' %}" class="btn btn-secondary">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  (function () {
+    const textarea = document.querySelector(".feature-list-input");
+    const listEl = document.getElementById("featurePreviewList");
+    if (!textarea || !listEl) return;
+
+    function renderPreview() {
+      const lines = textarea.value
+        .split("\n")
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+
+      listEl.innerHTML = "";
+
+      if (lines.length === 0) {
+        const li = document.createElement("li");
+        li.className = "empty";
+        li.textContent = "No features entered yet.";
+        listEl.appendChild(li);
+        return;
+      }
+
+      lines.forEach((line) => {
+        const li = document.createElement("li");
+        li.textContent = line;
+        listEl.appendChild(li);
+      });
+    }
+
+    textarea.addEventListener("input", renderPreview);
+    renderPreview();
+  })();
+  // ---- Human size preview ----
+(function () {
+  const numberInput = document.querySelector(".size-number");
+  const unitSelect = document.querySelector(".size-unit");
+  const previewEl = document.getElementById("sizePreview");
+  const textEl = document.getElementById("sizePreviewText");
+
+  if (!numberInput || !unitSelect || !previewEl) return;
+
+  const FACTORS = { B: 1, KB: 1024, MB: 1024 ** 2, GB: 1024 ** 3 };
+
+  function humanize(bytes) {
+    const units = [
+      ["GB", 1024 ** 3],
+      ["MB", 1024 ** 2],
+      ["KB", 1024],
+      ["B", 1],
+    ];
+    for (const [u, f] of units) {
+      if (bytes >= f) {
+        const val = bytes / f;
+        return `${val % 1 === 0 ? val : val.toFixed(2)} ${u}`;
+      }
+    }
+    return `${bytes} B`;
+  }
+
+  function updatePreview() {
+    const num = parseFloat(numberInput.value);
+    const unit = unitSelect.value;
+
+    if (!num || num <= 0) {
+      previewEl.classList.add("muted");
+      textEl.textContent = "Enter a value to see the size in bytes.";
+      return;
+    }
+
+    const bytes = Math.round(num * FACTORS[unit]);
+    previewEl.classList.remove("muted");
+    textEl.textContent = `${num} ${unit} = ${bytes.toLocaleString()} bytes  ·  ${humanize(bytes)}`;
+  }
+
+  numberInput.addEventListener("input", updatePreview);
+  unitSelect.addEventListener("change", updatePreview);
+  updatePreview();
+})();
+</script>
+
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+{% block title %}Packages{% endblock %}
+{% block content %}
+
+
+<div class="page-header">
+  <div><h1>Packages</h1><p>Subscription plans offered.</p></div>
+  <a href="{% url 'cms:package_create' %}" class="btn btn-primary">+ New Package</a>
+</div>
+
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Name</th><th>Price</th><th>Validity</th><th>Max Upload</th>
+        <th>Chat</th><th>Image Gen</th><th>Subs</th><th>Status</th>
+        <th style="text-align:right;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in packages %}
+      <tr>
+        <td><strong>{{ p.name }}</strong>{% if p.is_free %} <span class="badge active">Free</span>{% endif %}</td>
+        <td>₹{{ p.price }}</td>
+        <td>{{ p.plan_validity }} days</td>
+        <td>{{ p.max_upload_size|filesizeformat }}</td>
+        <td>{{ p.chat_enabled|yesno:"✓,—" }}</td>
+        <td>{{ p.image_gen_enabled|yesno:"✓,—" }}</td>
+        <td>{{ p.sub_count }}</td>
+        <td>{% if p.is_active %}<span class="badge active">Active</span>{% else %}<span class="badge inactive">Inactive</span>{% endif %}</td>
+        <td>
+          <div class="actions">
+            <a href="{% url 'cms:package_update' p.pk %}" class="btn btn-primary btn-sm">Edit</a>
+            <a href="{% url 'cms:package_delete' p.pk %}" class="btn btn-danger btn-sm">Delete</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="9"><div class="empty"><h3>No Packages</h3><p>Create your first package to get started.</p></div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

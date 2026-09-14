@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+{% block title %}Transactions{% endblock %}
+{% block content %}
+
+
+<div class="page-header">
+  <div><h1>Transactions</h1><p>All payments and their statuses.</p></div>
+  <a href="{% url 'cms:transaction_create' %}" class="btn btn-primary">+ New Transaction</a>
+</div>
+
+<form method="get" class="filters">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search ref, user, package...">
+  <select name="status">
+    <option value="">All statuses</option>
+    {% for val, label in statuses %}
+      <option value="{{ val }}" {% if status == val %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  <select name="range">
+    <option value="7" {% if date_range == '7' %}selected{% endif %}>Last 7 days</option>
+    <option value="30" {% if date_range == '30' %}selected{% endif %}>Last 30 days</option>
+    <option value="90" {% if date_range == '90' %}selected{% endif %}>Last 90 days</option>
+    <option value="all" {% if date_range == 'all' %}selected{% endif %}>All time</option>
+  </select>
+  <button type="submit" class="btn btn-secondary btn-sm">Filter</button>
+</form>
+
+<div class="kpi-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:16px;display:grid;gap:16px;">
+  <div style="background:#fff;border:1px solid #eef0f4;border-radius:14px;padding:16px;">
+    <div style="font-size:12px;color:#9ca3af;font-weight:600;text-transform:uppercase;">Filtered Total</div>
+    <div style="font-size:22px;font-weight:700;color:#6366f1;">₹{{ completed_total|floatformat:2 }}</div>
+  </div>
+</div>
+
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr><th>Ref</th><th>User</th><th>Package</th><th>Amount</th><th>Status</th><th>Created</th><th style="text-align:right;">Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for t in page_obj %}
+      <tr>
+        <td><code style="font-size:12px;">{{ t.ref|truncatechars:16 }}</code></td>
+        <td>{{ t.user.username }}</td>
+        <td>{{ t.package.name }}</td>
+        <td>₹{{ t.amount }}</td>
+        <td><span class="badge {{ t.status }}">{{ t.get_status_display }}</span></td>
+        <td>{{ t.created_at|date:"M d, Y H:i" }}</td>
+        <td>
+          <div class="actions">
+            <a href="{% url 'cms:transaction_update' t.pk %}" class="btn btn-primary btn-sm">Edit</a>
+            <a href="{% url 'cms:transaction_delete' t.pk %}" class="btn btn-danger btn-sm">Delete</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="7"><div class="empty"><h3>No Transactions</h3></div></td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
