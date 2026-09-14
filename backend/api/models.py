@@ -4,6 +4,7 @@ from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
+from simple_history.models import HistoricalRecords
 
 from shared.models import AuditMixin
 
@@ -24,7 +25,7 @@ class Package(models.Model):
     is_free = models.BooleanField(default=False)
 
     def __str__(self):
-        return {self.name - self.is_free}
+        return f"{self.name} - {self.is_free}"
 
 
 class CustomUser(AbstractUser):
@@ -68,10 +69,7 @@ class Transaction(models.Model):
         default=uuid.uuid4,
         editable=False,
     )
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.PROTECT,
-    )
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="transactions")
     package = models.ForeignKey(
         Package,
         on_delete=models.PROTECT,
@@ -114,6 +112,8 @@ class Folder(AuditMixin):
         unique=True,
     )
 
+    history = HistoricalRecords()
+
     def __str__(self):
         return self.name
 
@@ -147,6 +147,8 @@ class UserFile(AuditMixin):
         default=uuid.uuid4,
         unique=True,
     )
+
+    history = HistoricalRecords()
 
     def __str__(self):
         return self.filename
