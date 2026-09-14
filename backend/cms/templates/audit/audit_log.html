@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% block title %}Audit Log{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>Audit Log</h1>
+    <p>Change history across auditable models.</p>
+  </div>
+</div>
+
+{% if not has_history %}
+  <div class="table-wrapper">
+    <div class="empty">
+      <h3>No history backend detected</h3>
+      <p>Add <code>django-simple-history</code> and register your models, or create a custom AuditLog model in <code>shared/models.py</code>.</p>
+    </div>
+  </div>
+{% else %}
+
+<form method="get" class="filters">
+  <select name="model">
+    <option value="">All models</option>
+    {% for m in auditable_models %}
+      <option value="{{ m }}" {% if selected_model == m %}selected{% endif %}>{{ m }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="action">
+    <option value="">All actions</option>
+    <option value="+" {% if selected_action == '+' %}selected{% endif %}>Created</option>
+    <option value="~" {% if selected_action == '~' %}selected{% endif %}>Updated</option>
+    <option value="-" {% if selected_action == '-' %}selected{% endif %}>Deleted</option>
+  </select>
+
+  <select name="range">
+    <option value="7"   {% if selected_range == '7' %}selected{% endif %}>Last 7 days</option>
+    <option value="30"  {% if selected_range == '30' %}selected{% endif %}>Last 30 days</option>
+    <option value="90"  {% if selected_range == '90' %}selected{% endif %}>Last 90 days</option>
+    <option value="all" {% if selected_range == 'all' %}selected{% endif %}>All time</option>
+  </select>
+
+  <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+</form>
+
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>When</th>
+        <th>Model</th>
+        <th>Object</th>
+        <th>Action</th>
+        <th>User</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for record in page_obj %}
+      <tr>
+        <td>{{ record.history_date|date:"M d, Y H:i" }}</td>
+        <td>{{ record.model_name }}</td>
+        <td>{{ record.object_repr }}</td>
+        <td>
+          {% if record.history_type == '+' %}
+            <span class="badge completed">Created</span>
+          {% elif record.history_type == '~' %}
+            <span class="badge pending">Updated</span>
+          {% else %}
+            <span class="badge failed">Deleted</span>
+          {% endif %}
+        </td>
+        <td>{{ record.history_user.username|default:"system" }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5" style="text-align:center;color:#9ca3af;padding:40px;">
+          No audit records found.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="pagination">
+  {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}&model={{ selected_model }}&action={{ selected_action }}&range={{ selected_range }}">←</a>
+  {% endif %}
+  <span class="current">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}&model={{ selected_model }}&action={{ selected_action }}&range={{ selected_range }}">→</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% endif %}
+{% endblock %}

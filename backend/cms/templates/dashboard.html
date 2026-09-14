@@ -1,0 +1,272 @@
+{% extends 'base.html' %} {% block title %}Dashboard — Analytics{% endblock %} {% block content %}
+
+<style>
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .kpi {
+    background: #fff;
+    border: 1px solid #eef0f4;
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+  }
+  .kpi .label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #9ca3af;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .kpi .value {
+    font-size: 26px;
+    font-weight: 700;
+    color: #111827;
+  }
+  .kpi .sub {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 6px;
+  }
+  .kpi.green .value {
+    color: #059669;
+  }
+  .kpi.indigo .value {
+    color: #6366f1;
+  }
+  .kpi.amber .value {
+    color: #d97706;
+  }
+  .kpi.rose .value {
+    color: #e11d48;
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .card {
+    background: #fff;
+    border: 1px solid #eef0f4;
+    border-radius: 14px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(16, 24, 40, 0.04);
+  }
+  .card h3 {
+    margin: 0 0 16px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #111827;
+  }
+  .bar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    font-size: 13px;
+  }
+  .bar-label {
+    width: 120px;
+    color: #4b5563;
+    font-weight: 500;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .bar-track {
+    flex: 1;
+    height: 8px;
+    background: #f3f4f6;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    border-radius: 6px;
+  }
+  .bar-value {
+    width: 90px;
+    text-align: right;
+    color: #111827;
+    font-weight: 600;
+  }
+  .mini-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .mini-table th {
+    text-align: left;
+    padding: 8px 6px;
+    color: #6b7280;
+    font-weight: 600;
+    border-bottom: 1px solid #eef0f4;
+    font-size: 11px;
+    text-transform: uppercase;
+  }
+  .mini-table td {
+    padding: 10px 6px;
+    border-bottom: 1px solid #f3f4f6;
+    color: #374151;
+  }
+  .mini-table tr:last-child td {
+    border-bottom: none;
+  }
+  @media (max-width: 900px) {
+    .grid-2 {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<div class="page-header">
+  <div>
+    <h1>Analytics Dashboard</h1>
+    <p>Financial performance and system overview.</p>
+  </div>
+  <div class="page-actions">
+    <a href="{% url 'cms:user_list' %}" class="btn btn-secondary">Users</a>
+    <a href="{% url 'cms:package_list' %}" class="btn btn-secondary">Packages</a>
+    <a href="{% url 'cms:transaction_list' %}" class="btn btn-secondary">Transactions</a>
+    <a href="{% url 'cms:audit_log' %}" class="btn btn-primary">Audit Log</a>
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi green">
+    <div class="label">Total Revenue</div>
+    <div class="value">₹{{ total_revenue|floatformat:2 }}</div>
+    <div class="sub">All-time completed payments</div>
+  </div>
+  <div class="kpi indigo">
+    <div class="label">Revenue (30d)</div>
+    <div class="value">₹{{ revenue_30d|floatformat:2 }}</div>
+    <div class="sub">Last 30 days</div>
+  </div>
+  <div class="kpi amber">
+    <div class="label">Revenue (7d)</div>
+    <div class="value">₹{{ revenue_7d|floatformat:2 }}</div>
+    <div class="sub">Last 7 days</div>
+  </div>
+  <div class="kpi">
+    <div class="label">Total Users</div>
+    <div class="value">{{ total_users }}</div>
+    <div class="sub">{{ new_users_30d }} new (30d) · {{ active_users_30d }} active</div>
+  </div>
+</div>
+
+<div class="kpi-grid">
+  <div class="kpi green">
+    <div class="label">Active Subscriptions</div>
+    <div class="value">{{ active_subs }}</div>
+    <div class="sub">{{ queued_subs }} queued · {{ expired_subs }} expired</div>
+  </div>
+  <div class="kpi indigo">
+    <div class="label">Total Files</div>
+    <div class="value">{{ total_files }}</div>
+    <div class="sub">{{ total_folders }} folders</div>
+  </div>
+  <div class="kpi amber">
+    <div class="label">Storage Used</div>
+    <div class="value">{{ total_storage|filesizeformat }}</div>
+    <div class="sub">Across all users</div>
+  </div>
+  <div class="kpi rose">
+    <div class="label">Chat Sessions</div>
+    <div class="value">{{ total_chat_sessions }}</div>
+    <div class="sub">Encrypted conversations</div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h3>Revenue by Package</h3>
+    {% if revenue_by_package %} {% for row in revenue_by_package %}
+    <div class="bar-row">
+      <span class="bar-label">{{ row.package__name }}</span>
+      <div class="bar-track">
+        <div class="bar-fill" style="width: {% widthratio row.total total_revenue 100 %}%;"></div>
+      </div>
+      <span class="bar-value">₹{{ row.total|floatformat:0 }}</span>
+    </div>
+    {% endfor %} {% else %}
+    <p style="color: #9ca3af; font-size: 13px">No completed transactions yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>Monthly Revenue (Last 6 Months)</h3>
+    {% for m in monthly_revenue %}
+    <div class="bar-row">
+      <span class="bar-label">{{ m.month }}</span>
+      <div class="bar-track">
+        <div class="bar-fill" style="width: {% widthratio m.total max_monthly 100 %}%;"></div>
+      </div>
+      <span class="bar-value">₹{{ m.total|floatformat:0 }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <h3>Top Spenders</h3>
+    {% if top_spenders %}
+    <table class="mini-table">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Email</th>
+          <th style="text-align: right">Spent</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in top_spenders %}
+        <tr>
+          <td>{{ s.user__username }}</td>
+          <td>{{ s.user__email }}</td>
+          <td style="text-align: right; font-weight: 600">₹{{ s.total_spent|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color: #9ca3af; font-size: 13px">No completed transactions yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3>Subscriptions Ending Soon (7 days)</h3>
+    {% if ending_soon %}
+    <table class="mini-table">
+      <thead>
+        <tr>
+          <th>User</th>
+          <th>Package</th>
+          <th>Ends</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in ending_soon %}
+        <tr>
+          <td>{{ s.user.username }}</td>
+          <td>{{ s.package.name }}</td>
+          <td>{{ s.active_to }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <p style="color: #9ca3af; font-size: 13px">No subscriptions expiring soon.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% block title %}Cannot Delete {{ type }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div>
+    <h1>Cannot Delete {{ type }}</h1>
+    <p>This record is referenced by protected foreign keys.</p>
+  </div>
+  <a href="{% url back_url %}" class="btn btn-secondary">← Back</a>
+</div>
+
+<div class="card" style="border-left:4px solid #dc2626;background:#fef2f2;margin-bottom:20px;">
+  <p style="margin:0;color:#991b1b;font-size:14px;">
+    <strong>{{ object }}</strong> cannot be deleted because
+    <strong>{{ total_protected }}</strong> related record{{ total_protected|pluralize }}
+    still reference{{ total_protected|pluralize:"s," }} it.
+  </p>
+</div>
+
+<div class="table-wrapper">
+  <div class="table-header">
+    <h3>Protected Relations</h3>
+  </div>
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th style="width:180px;">Model</th>
+        <th>Object</th>
+        <th style="text-align:right;">Manage</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for model_name, objs in grouped.items %}
+        {% for obj in objs %}
+          <tr>
+            <td><span class="badge on_queue">{{ model_name }}</span></td>
+            <td>{{ obj }}</td>
+            <td style="text-align:right;">
+              {% if model_name == "Subscription" %}
+                <a href="{% url 'cms:subscription_list' %}" class="btn btn-secondary btn-sm">Go to Subscriptions</a>
+              {% elif model_name == "Transaction" %}
+                <a href="{% url 'cms:transaction_list' %}" class="btn btn-secondary btn-sm">Go to Transactions</a>
+              {% elif model_name == "User" %}
+                <a href="{% url 'cms:user_list' %}" class="btn btn-secondary btn-sm">Go to Users</a>
+              {% elif model_name == "UserFile" %}
+                <a href="{% url 'cms:file_list' %}" class="btn btn-secondary btn-sm">Go to Files</a>
+              {% elif model_name == "Folder" %}
+                <a href="{% url 'cms:folder_list' %}" class="btn btn-secondary btn-sm">Go to Folders</a>
+              {% else %}
+                <span style="color:#9ca3af;font-size:12px;">Manual removal required</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="card" style="margin-top:20px;background:#eff6ff;border-color:#bfdbfe;">
+  <p style="margin:0;color:#1e40af;font-size:13px;">
+    <strong>Why is this happening?</strong>
+    The related models declare
+    <code>on_delete=models.PROTECT</code>, which prevents accidental data loss.
+    Delete or reassign the records above first, then retry.
+  </p>
+</div>
+
+<div style="margin-top:20px;display:flex;gap:10px;">
+  <a href="{% url back_url %}" class="btn btn-primary">OK, Go Back</a>
+</div>
+
+{% endblock %}

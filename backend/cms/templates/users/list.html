@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+{% block title %}Users{% endblock %}
+{% block content %}
+
+
+<div class="page-header">
+  <div>
+    <h1>Users</h1>
+    <p>Manage all registered users.</p>
+  </div>
+  <a href="{% url 'cms:user_create' %}" class="btn btn-primary">+ New User</a>
+</div>
+
+<form method="get" class="filters">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search username, email, phone...">
+  <button type="submit" class="btn btn-secondary btn-sm">Search</button>
+</form>
+
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>Email</th>
+        <th>Phone</th>
+        <th>Joined</th>
+        <th>Subscriptions</th>
+        <th>Files</th>
+        <th style="text-align:right;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in page_obj %}
+      <tr>
+        <td>
+          <div class="user-cell">
+            <div class="avatar">{{ u.username|slice:":2" }}</div>
+            <div>
+              <div style="font-weight:600;">{{ u.username }}</div>
+              <div style="font-size:12px;color:#9ca3af;">{{ u.get_full_name|default:"—" }}</div>
+            </div>
+          </div>
+        </td>
+        <td>{{ u.email|default:"—" }}</td>
+        <td>{{ u.phone|default:"—" }}</td>
+        <td>{{ u.date_joined|date:"M d, Y" }}</td>
+        <td>{{ u.sub_count }}</td>
+        <td>{{ u.file_count }}</td>
+        <td>
+          <div class="actions">
+            <a href="{% url 'cms:user_detail' u.pk %}" class="btn btn-secondary btn-sm">View</a>
+            <a href="{% url 'cms:user_update' u.pk %}" class="btn btn-primary btn-sm">Edit</a>
+            <a href="{% url 'cms:user_delete' u.pk %}" class="btn btn-danger btn-sm">Delete</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td colspan="7"><div class="empty"><h3>No Users</h3><p>Create your first user to get started.</p></div></td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if page_obj.has_other_pages %}
+<div class="pagination">
+  {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&q={{ q }}">←</a>{% endif %}
+  <span class="current">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+  {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&q={{ q }}">→</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

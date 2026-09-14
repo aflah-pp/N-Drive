@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block title %}Folders{% endblock %}
+{% block content %}
+
+
+<div class="page-header">
+  <div><h1>Folders</h1><p>All user folders.</p></div>
+  <a href="{% url 'cms:file_list' %}" class="btn btn-secondary">← Files</a>
+</div>
+
+<form method="get" class="filters">
+  <input type="text" name="q" value="{{ q }}" placeholder="Search folder / user...">
+  <button type="submit" class="btn btn-secondary btn-sm">Search</button>
+</form>
+
+<div class="table-wrapper">
+  <table class="data-table">
+    <thead>
+      <tr><th>Name</th><th>User</th><th>Files</th><th>Actions</th></tr>
+    </thead>
+    <tbody>
+      {% for folder in page_obj %}
+      <tr>
+        <td>{{ folder.name }}</td>
+        <td>{{ folder.user.username }}</td>
+        <td>{{ folder.files.count }}</td>
+        <td>
+          <div class="actions">
+            <a href="{% url 'cms:folder_delete' folder.pk %}" class="btn btn-danger btn-sm">Delete</a>
+          </div>
+        </td>
+      </tr>
+      {% empty %}<tr><td colspan="4"><div class="empty"><h3>No Folders</h3></div></td></tr>{% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
