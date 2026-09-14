@@ -21,9 +21,10 @@ class Package(models.Model):
     image_gen_enabled = models.BooleanField(default=False)
     description = models.JSONField()
     is_active = models.BooleanField(default=True)
+    is_free = models.BooleanField(default=False)
 
     def __str__(self):
-        return self.name
+        return {self.name - self.is_free}
 
 
 class CustomUser(AbstractUser):
@@ -44,7 +45,7 @@ class Subscription(models.Model):
         EXPIRED = "Expired", "Expired"
         ON_QUEUE = "ON_QUEUE", "On Queue"
 
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE,related_name="subscriptions")
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="subscriptions")
     package = models.ForeignKey(Package, on_delete=models.PROTECT)
     active_from = models.DateField()
     active_to = models.DateField()

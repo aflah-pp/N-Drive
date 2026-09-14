@@ -20,10 +20,16 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import CustomUser, EncryptedChatSession, Folder, Package, Subscription, Transaction, UserFile
 
-DEFAULT_USER_STORAGE = 250 * 1024 * 1024
-
 
 class AccountService:
+    """Account Based Business logics
+
+    Includes:
+        get_active_sub(): returns active subscription of authenticated user
+        get_active_package():returns package subscribed(on active) by authenticated user
+        get_user_tokens():returns users access and refresh token
+        create:register user.
+    """
 
     @staticmethod
     def get_active_sub(*, user):
@@ -35,8 +41,10 @@ class AccountService:
     @staticmethod
     def get_active_package(*, user):
         sub = AccountService.get_active_sub(user=user)
-        package = sub.package if sub else None
-        return package
+        if sub:
+            return sub.package
+        # package = sub.package if sub else None
+        return Package.objects.get(is_free=True)
 
     @staticmethod
     def get_user_tokens(user):
@@ -57,16 +65,21 @@ class AccountService:
 
 
 class PackageService:
+    """Account Based Business logics
+
+    Includes:
+        bytes_to_mb():converts bytes to Mb value
+        storage_usage:returns authenticated users storage usage
+    """
+
     @staticmethod
     def bytes_to_mb(*, size_in_bytes):
         return round(size_in_bytes / (1024 * 1024), 2)
 
     @staticmethod
     def storage_usage(*, user):
-        max_allowed_storage_bytes = DEFAULT_USER_STORAGE
         package = AccountService.get_active_package(user=user)
-        if package is not None:
-            max_allowed_storage_bytes = package.max_upload_size
+        max_allowed_storage_bytes = package.max_upload_size
         total_used_bytes = sum(f.size for f in user.files.filter(is_deleted=False))
 
         remaining_bytes = max_allowed_storage_bytes - total_used_bytes
@@ -89,6 +102,13 @@ class PackageService:
 
 
 class PaymentService:
+    """Payment Based Business logics
+
+    Includes:
+        initiate():starts the mock payment by creating Transaction object with status pending,returns payment link ,order id etc
+        status():ends the mock payment by updating status of Transaction object with completed/failed,if completed creates subscription object linking user and selected package.
+    """
+
     @staticmethod
     @transaction.atomic
     def initiate(
@@ -184,16 +204,23 @@ class PaymentService:
 
 
 class FileService:
+    """File Based Business logics
+
+    Includes:
+        upload_file():upload file to N drive
+        download_file():download file from N drive
+        delete_file():Soft Delete file from N drive
+
+    """
+
     @staticmethod
     @transaction.atomic()
     def upload_file(*, user, uploaded_file, folder_id=None):
         package = AccountService.get_active_package(user=user)
 
-        max_upload_size = package.max_upload_size if package is not None else DEFAULT_USER_STORAGE
+        max_upload_size = package.max_upload_size
         if uploaded_file.size > max_upload_size:
-            raise ValueError(
-                f"File too large.Max Size for {package.name if package is not None else "Free"} is {max_upload_size / (1024 * 1024):.2f} mb"
-            )
+            raise ValueError(f"File too large.Max Size for {package.name} is {max_upload_size / (1024 * 1024):.2f} mb")
         total_used = sum(file.size for file in user.files.all())
 
         if total_used + uploaded_file.size > max_upload_size:
@@ -231,7 +258,7 @@ class FileService:
         file_obj = UserFile.objects.filter(id=file_id, user=user).first()
 
         if not file_obj:
-            return LookupError("File not Found")
+            raise LookupError("File not Found")
 
         # if file_obj and os.path.exists(file_obj.file.path):
         #     os.remove(file_obj.file.path)
@@ -243,6 +270,14 @@ class FileService:
 
 
 class FolderService:
+    """Folder Based Business logics
+
+    Includes:
+        create_folder():create folder to N drive
+        download_folder():download folder with files from N drive in zip format
+        delete_folder():Soft Delete folder from N drive
+    """
+
     @staticmethod
     @transaction.atomic()
     def create_folder(*, user, name) -> Folder:
@@ -280,7 +315,7 @@ class FolderService:
         except Folder.DoesNotExist:
             raise ValueError("Folder Not Found")
 
-        folder.files.all().update(deleted_by=user, deleted_at=timezone.now())
+        folder.files.all().update(deleted_by=user, deleted_at=timezone.now(), is_deleted=True)
 
         folder.is_deleted = True
         folder.deleted_at = timezone.now()
@@ -289,6 +324,19 @@ class FolderService:
 
 
 class AIService:
+    """Ai Based Business logics
+
+    Includes:
+        cipher=fernet key
+        save_conversation():saves chat history of user by encoding/encrypting with cipher
+        get_conversation():returns chat history of user by decrypting encoded history with cipher
+        get_session():returns users chat session
+        reset_session():clears users saved chat session/history
+        save_session():saves users chat session
+        send_message():users send message to sever->server send it to ai model using api-> api give response to server -> server give it to user.
+        img_gen():users send prompt to sever->server send it to ai model using api-> api give generated image to server in binary  -> server give it to user.
+    """
+
     cipher = Fernet(settings.FERNET_KEY)
 
     @staticmethod
@@ -320,7 +368,7 @@ class AIService:
 
     @staticmethod
     def send_message(*, user, message, modelId):
-        package = user.package
+        package = AccountService.get_active_package(user=user)
 
         if not package or not package.chat_enabled:
             raise PermissionError({"Chat AI is not available for your package"})
@@ -368,7 +416,8 @@ class AIService:
 
     @staticmethod
     def img_gen(*, user, prompt):
-        package = user.package
+        package = AccountService.get_active_package(user=user)
+
         if not package.image_gen_enabled:
             return ValueError("You have no access to Image Generation")
         payload = {"prompt": prompt, "steps": 20, "cfg_scale": 7, "sampler_name": "k_euler", "nsfw": True}
@@ -398,4 +447,54 @@ class AIService:
 
 
 class BinService:
-    pass
+    """Bin Based Business logics
+
+    Includes:-
+        restore():restore entire items in bin(soft deleted) by user
+        restore_item():restore individual items (files or folders) in bin(soft deleted) by user
+    """
+
+    @staticmethod
+    @transaction.atomic
+    def restore(*, files, folders):
+        for folder in folders:
+            folder.is_deleted = False
+            folder.deleted_by = None
+            folder.deleted_at = None
+            folder.save(update_fields=("is_deleted", "deleted_by", "deleted_at"))
+
+            for file in folder.files.all():
+                file.is_deleted = False
+                file.deleted_by = None
+                file.deleted_at = None
+                file.save(update_fields=("is_deleted", "deleted_by", "deleted_at"))
+        for file in files:
+            file.is_deleted = False
+            file.deleted_by = None
+            file.deleted_at = None
+            file.save(update_fields=("is_deleted", "deleted_by", "deleted_at"))
+
+        return
+
+    @staticmethod
+    @transaction.atomic
+    def restore_item(*, user, item_type, item_id):
+        if item_type == "file":
+            file = UserFile.objects.get(id=item_id, user=user, is_deleted=True)
+            file.deleted_by = None
+            file.deleted_at = None
+            file.is_deleted = False
+            file.save(update_fields=("deleted_by", "deleted_at", "is_deleted"))
+        elif item_type == "folder":
+            folder = Folder.objects.get(id=item_id, user=user, is_deleted=True)
+            folder.deleted_by = None
+            folder.deleted_at = None
+            folder.is_deleted = False
+            folder.save(update_fields=("deleted_by", "deleted_at", "is_deleted"))
+            UserFile.objects.filter(user=user, parent_folder=folder, is_deleted=True).update(
+                deleted_by=None,
+                deleted_at=None,
+                is_deleted=False,
+            )
+        else:
+            return ValueError("Invalid Item Type")
