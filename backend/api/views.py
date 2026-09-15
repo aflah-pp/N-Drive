@@ -547,9 +547,8 @@ def generate_image(request):
 
     if not prompt:
         return Response({"error": "Prompt required"}, status=400)
-
-    package = getattr(user, "package", None)
-    if not package or not getattr(package, "image_gen_enabled", False):
+    package = AccountService.get_active_package(user=user)
+    if not package.image_gen_enabled:
         return Response({"error": "Image generation not enabled for your package"}, status=403)
 
     try:
@@ -563,7 +562,6 @@ def generate_image(request):
 
         headers = {"apikey": API_KEY, "Content-Type": "application/json"}
 
-        # generation request
         response = requests.post(STABLE_HORDE_URL, headers=headers, json=payload)
         if response.status_code not in [200, 202]:
             return Response(
@@ -579,22 +577,41 @@ def generate_image(request):
         if not prediction_id:
             return Response({"error": "No prediction ID returned"}, status=500)
 
-        # Poll until image is ready
         result_url = f"https://stablehorde.net/api/v2/generate/status/{prediction_id}"
         while True:
             r = requests.get(result_url, headers=headers)
             r_data = r.json()
             if r_data.get("done"):
                 break
-            time.sleep(2)  # wait before polling again
+            time.sleep(2)
 
-        # Get base64 image
         images_b64 = r_data.get("generations", [{}])[0].get("img")
         if not images_b64:
             return Response({"error": "No image returned"}, status=500)
 
-        # Return base64 image to frontend
+        AIService.img_save(user=user, images_b64=images_b64)
+
         return Response({"image_base64": images_b64})
 
     except Exception as e:
         return Response({"error": str(e)}, status=500)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_user_generated_images(request):
+    """Returns List of AI generated Image By User"""
+    user = request.user
+    result = AIService.all_image(user=user)
+    if not result:
+        return Response({"error": "No generated image found"}, status=status.HTTP_400_BAD_REQUEST)
+    return Response({"message": "Image fetched successfully", "result": result}, status=status.HTTP_200_OK)
+
+
+@api_view(["DELETE"])
+@permission_classes({IsAuthenticated})
+def delete_gen_img(request, img_id):
+    """Delete single AI generated Image of User"""
+    user = request.user
+    AIService.delete_image(user=user, img_id=img_id)
+    return Response({"message": "Image Deleted Successfully"}, status=status.HTTP_204_NO_CONTENT)

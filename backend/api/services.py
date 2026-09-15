@@ -1,14 +1,12 @@
 import json
 import math
 import os
-import time
 import uuid
 import zipfile
 from datetime import timedelta
 from decimal import Decimal
 from io import BytesIO
 
-import requests
 from cryptography.fernet import Fernet
 from django.conf import settings
 from django.db import transaction
@@ -18,7 +16,16 @@ from google.genai import types
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import CustomUser, EncryptedChatSession, Folder, Package, Subscription, Transaction, UserFile
+from .models import (
+    CustomUser,
+    EncryptedChatSession,
+    Folder,
+    GeneratedImage,
+    Package,
+    Subscription,
+    Transaction,
+    UserFile,
+)
 
 
 class AccountService:
@@ -324,17 +331,19 @@ class FolderService:
 
 
 class AIService:
-    """Ai Based Business logics
+    """Ai Based Business logics.
 
     Includes:
-        cipher=fernet key
-        save_conversation():saves chat history of user by encoding/encrypting with cipher
-        get_conversation():returns chat history of user by decrypting encoded history with cipher
-        get_session():returns users chat session
-        reset_session():clears users saved chat session/history
-        save_session():saves users chat session
-        send_message():users send message to sever->server send it to ai model using api-> api give response to server -> server give it to user.
-        img_gen():users send prompt to sever->server send it to ai model using api-> api give generated image to server in binary  -> server give it to user.
+        cipher=fernet key.
+        save_conversation():saves chat history of user by encoding/encrypting with cipher.
+        get_conversation():returns chat history of user by decrypting encoded history with cipher.
+        get_session():returns users chat session.
+        reset_session():clears users saved chat session/history.
+        save_session():saves users chat session.
+        send_message():users send message to sever->server send it to ai model using api-> api give response to server -> server give it to user..
+        img_save():save user's generated image in N-Drive database.
+        all_image():returns all  user's generated images in N-Drive database.
+        delete_image():delete single user's generated image from N-Drive database.
     """
 
     cipher = Fernet(settings.FERNET_KEY)
@@ -415,35 +424,20 @@ class AIService:
         return reply, conversation
 
     @staticmethod
-    def img_gen(*, user, prompt):
-        package = AccountService.get_active_package(user=user)
+    @transaction.atomic
+    def img_save(*, user, images_b64):
+        GeneratedImage.objects.create(user=user, image_url=images_b64, created_by=user)
+        return
 
-        if not package.image_gen_enabled:
-            return ValueError("You have no access to Image Generation")
-        payload = {"prompt": prompt, "steps": 20, "cfg_scale": 7, "sampler_name": "k_euler", "nsfw": True}
+    @staticmethod
+    def all_image(*, user):
+        return GeneratedImage.objects.filter(user=user)
 
-        headers = {"apikey": settings.API_KEY, "Content-Type": "application/json"}
-
-        response = requests.post(settings.STABLE_HORDE_URL, headers=headers, json=payload)
-        if response.status_code not in [200, 202]:
-            return {"error": f"stable Horde Api Error {response.status_code}", "details": response.text}
-
-        data = response.json()
-        prediction_id = data.get("id")
-
-        if not prediction_id:
-            return {"error": "No prediction ID returned"}
-
-        result_url = f"https://stablehorde.net/api/v2/generate/status/{prediction_id}"
-        while True:
-            r = requests.get(result_url, headers=headers)
-            r_data = r.json()
-            if r_data.get("done"):
-                break
-            time.sleep(2)
-        img_b64 = r_data.get("generations", [{}])[0].get("img")
-
-        return img_b64
+    @staticmethod
+    def delete_image(*, user, img_id):
+        img = GeneratedImage.objects.get(id=img_id)
+        img.delete()
+        return
 
 
 class BinService:

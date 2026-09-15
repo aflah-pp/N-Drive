@@ -37,6 +37,8 @@ urlpatterns = [
     path("chat/reset/", views.reset_chat_session),
     # Img generation
     path("img/gen/", views.generate_image, name="img-generation"),
+    path("img/all/", views.get_user_generated_images, name="all_image_generated"),
+    path("img/<uuid:img_id>/", views.delete_gen_img, name="delete_image_generated"),
     # Bin related
     path("storage/bin/", views.get_bin_storage, name="get_full_bin_storage"),
     path("bin/restore/", views.restore_bin, name="restore_bin"),
