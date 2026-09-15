@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import CustomUser, EncryptedChatSession, Folder, Package, Subscription, UserFile
+from .models import CustomUser, EncryptedChatSession, Folder, GeneratedImage, Package, Subscription, UserFile
 
 
 class MiniPackageSerializer(serializers.ModelSerializer):
@@ -73,7 +73,6 @@ class UserSerializer(serializers.ModelSerializer):
             "email",
             "phone",
         ]
-    
 
 
 class UpdateUserSerializer(serializers.ModelSerializer):
@@ -148,3 +147,9 @@ class EncryptedChatSessionSerializer(serializers.ModelSerializer):
     class Meta:
         model = EncryptedChatSession
         fields = ["id", "conversation", "created_at"]
+
+
+class ImageGeneratedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GeneratedImage
+        fields = ["id","user","image_url","created_at","created_by"]

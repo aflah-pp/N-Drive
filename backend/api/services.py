@@ -1,25 +1,31 @@
 import json
 import math
 import os
-import time
 import uuid
 import zipfile
 from datetime import timedelta
 from decimal import Decimal
 from io import BytesIO
 
-import requests
 from cryptography.fernet import Fernet
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 from google import genai
 from google.genai import types
-from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import CustomUser, EncryptedChatSession, Folder, Package, Subscription, Transaction, UserFile
+from .models import (
+    CustomUser,
+    EncryptedChatSession,
+    Folder,
+    GeneratedImage,
+    Package,
+    Subscription,
+    Transaction,
+    UserFile,
+)
 
 
 class AccountService:
@@ -325,17 +331,19 @@ class FolderService:
 
 
 class AIService:
-    """Ai Based Business logics
+    """Ai Based Business logics.
 
     Includes:
-        cipher=fernet key
-        save_conversation():saves chat history of user by encoding/encrypting with cipher
-        get_conversation():returns chat history of user by decrypting encoded history with cipher
-        get_session():returns users chat session
-        reset_session():clears users saved chat session/history
-        save_session():saves users chat session
-        send_message():users send message to sever->server send it to ai model using api-> api give response to server -> server give it to user.
-        img_gen():users send prompt to sever->server send it to ai model using api-> api give generated image to server in binary  -> server give it to user.
+        cipher=fernet key.
+        save_conversation():saves chat history of user by encoding/encrypting with cipher.
+        get_conversation():returns chat history of user by decrypting encoded history with cipher.
+        get_session():returns users chat session.
+        reset_session():clears users saved chat session/history.
+        save_session():saves users chat session.
+        send_message():users send message to sever->server send it to ai model using api-> api give response to server -> server give it to user..
+        img_save():save user's generated image in N-Drive database.
+        all_image():returns all  user's generated images in N-Drive database.
+        delete_image():delete single user's generated image from N-Drive database.
     """
 
     cipher = Fernet(settings.FERNET_KEY)
@@ -414,6 +422,22 @@ class AIService:
             session = EncryptedChatSession.objects.create(user=user)
             AIService.save_conversation(session=session, conversation=conversation)
         return reply, conversation
+
+    @staticmethod
+    @transaction.atomic
+    def img_save(*, user, images_b64):
+        GeneratedImage.objects.create(user=user, image_url=images_b64, created_by=user)
+        return
+
+    @staticmethod
+    def all_image(*, user):
+        return GeneratedImage.objects.filter(user=user)
+
+    @staticmethod
+    def delete_image(*, user, img_id):
+        img = GeneratedImage.objects.get(id=img_id)
+        img.delete()
+        return
 
 
 class BinService:

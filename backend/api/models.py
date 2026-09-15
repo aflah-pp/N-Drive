@@ -6,7 +6,7 @@ from django.db import models
 from phonenumber_field.modelfields import PhoneNumberField
 from simple_history.models import HistoricalRecords
 
-from shared.models import AuditMixin
+from shared.models import AuditMixin, CreatedByMixin
 
 from .utils.upload_path import user_upload_path
 
@@ -164,3 +164,12 @@ class EncryptedChatSession(models.Model):
 
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username}'s chat"
+
+
+class GeneratedImage(CreatedByMixin):
+    id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    image_url = models.URLField()
+
+    def __str__(self):
+        return f"{self.user.get_full_name()}'s image @{self.created_at}"
