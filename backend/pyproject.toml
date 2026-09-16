@@ -66,5 +66,6 @@ dependencies = [
     "typing-inspection==0.4.2",
     "urllib3==2.5.0",
     "whitenoise==6.11.0",
+    "xhtml2pdf>=0.2.20",
     "zipstream==1.1.4",
 ]
