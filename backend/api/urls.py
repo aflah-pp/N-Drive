@@ -29,6 +29,7 @@ urlpatterns = [
     # Payment Related
     path("payment/initiate/", views.initiate_payment, name="initiate-payment"),
     path("payment/status/", views.payment_status, name="payment-status"),
+    path("invoice/<uuid:transaction_id>/", views.get_user_invoice,name="get_transaction_invoice"),
     # AI
     # chat
     path("chat/", views.chat_ai, name="ai-chat"),

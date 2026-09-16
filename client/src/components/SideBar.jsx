@@ -16,6 +16,7 @@ import {
 } from "react-icons/fa";
 import { CgFileDocument } from "react-icons/cg";
 import NavLink from "./NavLink";
+import ThemeToggle from "@/components/theme-toggle";
 
 function Sidebar() {
   const { isAuthorized, setIsAuthorized, username, storage, permission } = useContext(AuthContext);
@@ -151,7 +152,7 @@ function Sidebar() {
                 <FaUserCircle className="w-5 h-5 text-[#99744a]" />
                 <span className="text-sm font-semibold text-[#414a37]">{username}</span>
               </Link>
-
+              <ThemeToggle />
               <button
                 onClick={handleLogout}
                 className="flex items-center gap-2 px-3 py-2 rounded-lg text-red-600 hover:bg-red-100 transition"

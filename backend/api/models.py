@@ -12,6 +12,8 @@ from .utils.upload_path import user_upload_path
 
 
 class Package(models.Model):
+    """Package Model defining how many days & how much storage and other function within price would be allowed"""
+
     name = models.CharField(max_length=20, unique=True)
     plan_validity = models.PositiveIntegerField(
         default=28,
@@ -29,6 +31,8 @@ class Package(models.Model):
 
 
 class CustomUser(AbstractUser):
+    """User Model to store detail of Authenticated User"""
+
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -41,6 +45,8 @@ class CustomUser(AbstractUser):
 
 
 class Subscription(models.Model):
+    """Model connecting user and package which is active[Recorded by Transaction Service]"""
+
     class SubscriptionStatus(models.TextChoices):
         ACTIVE = "ACTIVE", "Active"
         EXPIRED = "Expired", "Expired"
@@ -57,7 +63,9 @@ class Subscription(models.Model):
         return f"{self.user.get_full_name()}'s Subscription - {self.status}"
 
 
-class Transaction(models.Model):
+class Transaction(CreatedByMixin):
+    """Model to Store Transaction Done by an User"""
+
     STATUS_CHOICES = (
         ("pending", "Pending"),
         ("completed", "Completed"),
@@ -89,13 +97,13 @@ class Transaction(models.Model):
         choices=STATUS_CHOICES,
         default="pending",
     )
-    created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"{self.user.username} - {self.package.name} - {self.status}"
 
 
 class Folder(AuditMixin):
+
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -155,6 +163,8 @@ class UserFile(AuditMixin):
 
 
 class EncryptedChatSession(models.Model):
+    """model to store encrypted chat session"""
+
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -167,6 +177,8 @@ class EncryptedChatSession(models.Model):
 
 
 class GeneratedImage(CreatedByMixin):
+    """model to store ai generated image by an user"""
+
     id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     image_url = models.URLField()

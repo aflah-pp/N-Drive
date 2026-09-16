@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>N-Drive Invoice {{invoice_id}}</title>
+
+<style>
+
+  @page {
+    size: A4;
+    margin: 2cm 1.8cm;
+  }
+
+  body {
+    font-family: "Helvetica", "Arial", sans-serif;
+    color: #3b3b3b;
+    font-size: 10pt;
+    line-height: 1.5;
+  }
+
+  h1 {
+    font-size: 26pt;
+    font-weight: normal;
+    color: #010101;
+    margin: 0 0 10px 0;
+  }
+
+  h2 {
+    font-size: 9pt;
+    text-transform: uppercase;
+    color: #888888;
+    margin: 0 0 4px 0;
+  }
+
+  p { margin: 0 0 4px 0; }
+
+  .layout-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .header-table td {
+    vertical-align: top;
+    padding: 0;
+  }
+  .header-table .logo-cell {
+    font-weight: bold;
+    font-size: 12pt;
+    width: 50%;
+  }
+  .header-table .supplier-cell {
+    text-align: right;
+    width: 50%;
+    font-size: 9pt;
+  }
+
+  .intro-block {
+    padding: 14px 0 14px 0;
+  }
+
+  .meta-table {
+    border-top: 1px solid #dddddd;
+    border-bottom: 1px solid #dddddd;
+  }
+  .meta-table td {
+    vertical-align: top;
+    padding: 10px 8px 10px 0;
+    width: 33%;
+    font-size: 9pt;
+  }
+
+  .items-table {
+    margin-top: 14px;
+  }
+  .items-table th {
+    text-align: left;
+    font-size: 8pt;
+    text-transform: uppercase;
+    border-bottom: 1.5pt solid #8f51fe;
+    padding: 6px 4px;
+    color: #010101;
+  }
+  .items-table td {
+    padding: 8px 4px;
+    border-bottom: 0.5pt solid #eeeeee;
+    font-size: 9.5pt;
+  }
+  .items-table th.amount, .items-table td.amount {
+    text-align: right;
+  }
+  .calculation-table {
+    margin-top: 10px;
+  }
+  .calculation-table td {
+    padding: 8px 4px;
+    font-size: 10pt;
+  }
+  .calculation-table td.label {
+    font-weight: bold;
+  }
+  .calculation-table td.amount {
+    text-align: right;
+    font-weight: bold;
+    font-size: 10pt;
+    color: #e00df5;
+  }
+
+  .total-table {
+    margin-top: 10px;
+  }
+  .total-table td {
+    padding: 8px 4px;
+    font-size: 12pt;
+  }
+  .total-table td.label {
+    font-weight: bold;
+  }
+  .total-table td.amount {
+    text-align: right;
+    font-weight: bold;
+    font-size: 14pt;
+    color: #4f2ff5;
+  }
+
+  .footer {
+    margin-top: 30px;
+    border-top: 0.5pt solid #dddddd;
+    padding-top: 8px;
+    font-size: 7.5pt;
+    color: #999999;
+    text-align: center;
+  }
+</style>
+</head>
+
+<body>
+
+
+  <table class="layout-table header-table">
+    <tr>
+      <td class="logo-cell">N-Drive</td>
+      <td class="supplier-cell">
+        N-Drive Limited<br />
+        Kerala, India<br />
+        670001
+      </td>
+    </tr>
+  </table>
+
+
+  <div class="intro-block">
+    <h1>Tax Invoice</h1>
+    <p>Thank you for purchasing our {{package.name}} plan.</p>
+  </div>
+
+
+  <table class="layout-table meta-table">
+    <tr>
+      <td>
+        <h2>Customer</h2>
+        <p>
+          <strong>{{customer.get_full_name|default:customer.username}}</strong><br />
+          {% if customer.email %}{{customer.email}}<br />{% endif %}
+          {% if customer.phone %}{{customer.phone}}{% endif %}
+        </p>
+      </td>
+      <td>
+        <h2>Payment</h2>
+        <p>
+          <strong>Status:</strong> {{transaction.get_status_display}}<br />
+          <strong>Ref:</strong> {{transaction.ref}}
+        </p>
+      </td>
+      <td>
+        <h2>Invoice #{{invoice_id}}</h2>
+        <p>
+          <strong>Issued:</strong> {{created_at|date:"d/m/Y"}}<br />
+          {% if subscription %}
+            <strong>From:</strong> {{subscription.active_from|date:"d/m/Y"}}<br />
+            <strong>To:</strong> {{subscription.active_to|date:"d/m/Y"}}
+          {% endif %}
+        </p>
+      </td>
+    </tr>
+  </table>
+
+  <p style="padding-top: 14px; font-size: 9pt;">Billing you based on your order:</p>
+
+
+  <table class="layout-table items-table">
+    <tr>
+      <th>Description</th>
+      <th>Validity</th>
+      <th class="amount">Total</th>
+    </tr>
+    <tr>
+      <td>{{package.name}} Subscription</td>
+      <td>{{package.plan_validity}} days</td>
+      <td class="amount">Rs. {{amount}}</td>
+    </tr>
+  </table>
+
+  <table class="layout-table calculation-table">
+    <tr>
+      <td class="label">Tax</td>
+      <td class="amount">Rs. {{amount}}</td>
+    </tr>
+  </table>
+  <table class="layout-table total-table">
+    <tr>
+      <td class="label">Total Paid</td>
+      <td class="amount">Rs. {{amount}}</td>
+    </tr>
+  </table>
+
+  <div class="footer">
+    N-Drive Limited &middot; This is a computer-generated invoice and does not require a signature.
+  </div>
+
+</body>
+</html>

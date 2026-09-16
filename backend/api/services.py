@@ -16,6 +16,8 @@ from google.genai import types
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from api.utils.pdf_gen import render_to_pdf
+
 from .models import (
     CustomUser,
     EncryptedChatSession,
@@ -87,12 +89,16 @@ class PackageService:
     def storage_usage(*, user):
         package = AccountService.get_active_package(user=user)
         max_allowed_storage_bytes = package.max_upload_size
-        total_used_bytes = sum(f.size for f in user.files.filter(is_deleted=False))
+        total_files_usage = sum(f.size for f in user.files.filter(is_deleted=False))
+        total_bin_usage = sum(f.size for f in user.files.filter(is_deleted=True))
+
+        total_used_bytes = total_files_usage + total_bin_usage
 
         remaining_bytes = max_allowed_storage_bytes - total_used_bytes
         remaining_bytes = max(remaining_bytes, 0)
 
-        used_mb = PackageService.bytes_to_mb(size_in_bytes=total_used_bytes)
+        used_mb = PackageService.bytes_to_mb(size_in_bytes=total_files_usage)
+        in_bin = PackageService.bytes_to_mb(size_in_bytes=total_bin_usage)
         remaining_mb = PackageService.bytes_to_mb(size_in_bytes=remaining_bytes)
         total_mb = PackageService.bytes_to_mb(size_in_bytes=max_allowed_storage_bytes)
 
@@ -101,6 +107,7 @@ class PackageService:
         )
         response = {
             "used_storage": f"{used_mb}Mb",
+            "on_bin": f"{in_bin} Mb",
             "remaining_storage": f"{remaining_mb}Mb",
             "total_storage": f"{total_mb}Mb",
             "used_percentage": f"{used_percentage}%" if used_percentage < 100 else "over quota",
@@ -114,6 +121,8 @@ class PaymentService:
     Includes:
         initiate():starts the mock payment by creating Transaction object with status pending,returns payment link ,order id etc
         status():ends the mock payment by updating status of Transaction object with completed/failed,if completed creates subscription object linking user and selected package.
+        user_transactions():returns users all transactions
+        receipt_gen():return users receipt of a transaction
     """
 
     @staticmethod
@@ -208,6 +217,28 @@ class PaymentService:
             "message": f"Payment {transaction.status}",
         }
         return response
+
+    @staticmethod
+    def user_transactions(*, user):
+        queryset = Transaction.objects.filter(user=user)
+        return queryset
+
+    @staticmethod
+    def invoice_gen(*, user, transaction):
+        data = {
+            "invoice_id": transaction.ref,
+            "transaction": transaction,
+            "customer": transaction.user,
+            "package": transaction.package,
+            "subscription": transaction.subscription,
+            "amount": transaction.amount,
+            "created_at": transaction.created_at,
+        }
+
+        pdf = render_to_pdf(template_src="invoice.html", context_dict=data)
+        return pdf, transaction.ref
+
+    pass
 
 
 class FileService:
