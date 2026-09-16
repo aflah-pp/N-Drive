@@ -5,6 +5,7 @@ from django.conf import settings
 from django.db import transaction
 from django.db.models import Prefetch
 from django.http import FileResponse, HttpResponse
+from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -282,6 +283,33 @@ def payment_status(request):
 
     except Transaction.DoesNotExist:
         return Response({"error": "Transaction not found"}, status=404)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_user_transactions(request):
+    user = request.user
+    transactions = PaymentService.user_transactions(user=user)
+    return Response(
+        {"message": "Transactions fetched Successfully", "transactions": transactions}, status=status.HTTP_200_OK
+    )
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_user_invoice(request, transaction_id):
+    user = request.user
+    transaction = get_object_or_404(Transaction, id=transaction_id)
+    result, invoice_id = PaymentService.invoice_gen(user=user, transaction=transaction)
+    if not result:
+        return Response({"error": "Could not generate receipt PDF"}, status=status.HTTP_400_BAD_REQUEST)
+
+    response = HttpResponse(result, content_type="application/pdf")
+    filename = f"Invoice_{invoice_id}.pdf"
+
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+    return response
 
 
 @api_view(["GET"])

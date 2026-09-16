@@ -4,6 +4,7 @@ from django.utils.text import slugify
 
 
 def user_upload_path(instance, filename):
+    """returns path for uploaded file inside a folder."""
     name, ext = os.path.splitext(filename)
     safe_name = slugify(name)
     filename = f"{safe_name}{ext}"
