@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -11,10 +11,7 @@
       name="description"
       content="N-Drive is a full-stack AI-powered cloud storage platform with secure file handling, image generation, and AI chat integration."
     />
-    <meta
-      name="keywords"
-      content="AI cloud storage, file management, React, Django, N-Drive"
-    />
+    <meta name="keywords" content="AI cloud storage, file management, React, Django, N-Drive" />
     <meta name="author" content="Aflah" />
     <meta name="theme-color" content="#dbc2a6" />
 
@@ -53,15 +50,5 @@
     <div id="root"></div>
 
     <script type="module" src="/src/main.jsx"></script>
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker
-            .register('/service-worker.js')
-            .then(reg => console.log('SW registered: ', reg))
-            .catch(err => console.log('SW registration failed: ', err))
-        })
-      }
-    </script>
   </body>
 </html>
