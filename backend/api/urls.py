@@ -3,8 +3,11 @@ from django.urls import path
 from . import views
 
 urlpatterns = [
+    path("refresh/", views.refresh_token, name="refresh_token"),
     # User Related
     path("register/", views.register_user, name="register_user"),
+    path("login/", views.login_user, name="login_user"),
+    path("logout/", views.logout_user, name="logout_user"),
     path("update/", views.update_user, name="update_user"),
     path("self/", views.get_self, name="get_user"),
     # Package Related
@@ -29,7 +32,7 @@ urlpatterns = [
     # Payment Related
     path("payment/initiate/", views.initiate_payment, name="initiate-payment"),
     path("payment/status/", views.payment_status, name="payment-status"),
-    path("invoice/<uuid:transaction_id>/", views.get_user_invoice,name="get_transaction_invoice"),
+    path("invoice/<uuid:transaction_id>/", views.get_user_invoice, name="get_transaction_invoice"),
     # AI
     # chat
     path("chat/", views.chat_ai, name="ai-chat"),

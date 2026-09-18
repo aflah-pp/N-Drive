@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "rest_framework_simplejwt.token_blacklist",
     "simple_history",
     "corsheaders",
     "api",
@@ -145,3 +146,10 @@ FERNET_KEY = os.environ.get("KEY")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 STABLE_HORDE_URL = os.environ.get("STABLE_HORDE_URL")
 API_KEY = os.environ.get("API_KEY")
+
+JWT_REFRESH_COOKIE_NAME = "refresh_token"
+JWT_REFRESH_COOKIE_MAX_AGE = 604800
+JWT_REFRESH_COOKIE_SECURE = False  # True in production, False in local dev
+JWT_REFRESH_COOKIE_SAMESITE = "Lax"
+JWT_REFRESH_COOKIE_DOMAIN = ".example.com"
+JWT_REFRESH_COOKIE_PATH = "/api/v1/refresh/"

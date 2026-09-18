@@ -8,6 +8,7 @@ from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -21,11 +22,34 @@ from .serializers import (
     UserRegisterSerializer,
     UserSerializer,
 )
-from .services import AccountService, AIService, BinService, FileService, FolderService, PackageService, PaymentService
+from .services import (
+    AccountService,
+    AIService,
+    BinService,
+    FileService,
+    FolderService,
+    JWTService,
+    PackageService,
+    PaymentService,
+)
 
 STABLE_HORDE_URL = settings.STABLE_HORDE_URL
 API_KEY = settings.API_KEY
 GOOGLE_API_KEY = settings.GOOGLE_API_KEY
+
+
+def set_refresh_cookie(response, refresh_token):
+    response.set_cookie(
+        key=settings.JWT_REFRESH_COOKIE_NAME,
+        value=refresh_token,
+        max_age=settings.JWT_REFRESH_COOKIE_MAX_AGE,
+        httponly=True,
+        secure=settings.JWT_REFRESH_COOKIE_SECURE,
+        samesite=settings.JWT_REFRESH_COOKIE_SAMESITE,
+        domain=settings.JWT_REFRESH_COOKIE_DOMAIN,
+        path=settings.JWT_REFRESH_COOKIE_PATH,
+    )
+    return response
 
 
 @api_view(["POST"])
@@ -60,7 +84,7 @@ def register_user(request):
 
     user, token = AccountService.create(serializer.validated_data)
 
-    return Response(
+    response = Response(
         {
             "message": "User Created SuccessFully",
             "user": UserSerializer(user).data,
@@ -68,6 +92,48 @@ def register_user(request):
         },
         status=status.HTTP_201_CREATED,
     )
+    return set_refresh_cookie(response, token["refresh"])
+
+
+@api_view(["POST"])
+def login_user(request):
+    data = request.data
+    username = data.get("username")
+    password = data.get("password")
+
+    if not username:
+        raise ValidationError({"error": "Username is Required"})
+    if not password:
+        raise ValidationError({"error": "Password is Required"})
+    user, tokens = AccountService.login_user(username=username, password=password)
+    response = Response(
+        {"message": "Logged-In Successfully", "user": UserSerializer(user).data, "access": tokens["access"]},
+        status=status.HTTP_202_ACCEPTED,
+    )
+    return set_refresh_cookie(response, tokens["refresh"])
+
+
+@api_view(["POST"])
+def refresh_token(request):
+    refresh_token = request.COOKIES.get(settings.JWT_REFRESH_COOKIE_NAME)
+    if not refresh_token:
+        raise ValidationError({"error": "refresh token missing!!"})
+    data = JWTService.token_refresh(refresh_token=refresh_token)
+    response = Response(
+        {"message": "Token Refreshed Successfully", "access": data["access"]}, status=status.HTTP_200_OK
+    )
+    if "refresh" in data:
+        return set_refresh_cookie(response, data["refresh"])
+    return response
+
+
+@api_view(["POST"])
+def logout_user(request):
+    refresh_token = request.COOKIES.get(settings.JWT_REFRESH_COOKIE_NAME)
+    if not refresh_token:
+        raise ValidationError({"error": "refresh token missin!!"})
+    AccountService.logout_user(refresh_token=refresh_token)
+    return Response({"message": "Log out SuccessFull"}, status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(["GET"])
