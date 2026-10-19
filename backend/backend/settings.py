@@ -19,6 +19,7 @@ DEBUG = os.environ.get("DEBUG", "False") == "True"
 ALLOWED_HOSTS = [
     "http://127.0.0.1:8000",
     "127.0.0.1",
+    "localhost",
     "n-drive-server.onrender.com",
 ]
 
@@ -122,7 +123,7 @@ AUTH_USER_MODEL = "api.CustomUser"
 
 # CORS Origins
 CORS_ALLOWED_ORIGINS = ["http://localhost:5173", "https://n-drive-app.netlify.app"]
-
+CORS_ALLOW_CREDENTIALS = True
 # JWT settings
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=2),
@@ -151,5 +152,5 @@ JWT_REFRESH_COOKIE_NAME = "refresh_token"
 JWT_REFRESH_COOKIE_MAX_AGE = 604800
 JWT_REFRESH_COOKIE_SECURE = False  # True in production, False in local dev
 JWT_REFRESH_COOKIE_SAMESITE = "Lax"
-JWT_REFRESH_COOKIE_DOMAIN = ".example.com"
+JWT_REFRESH_COOKIE_DOMAIN = None
 JWT_REFRESH_COOKIE_PATH = "/api/v1/refresh/"

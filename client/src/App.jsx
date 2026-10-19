@@ -1,41 +1,47 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
-import PaymentStatus from './pages/payment/PaymentStatus'
-import PaymentInitiating from './pages/payment/PaymentInitiating'
-import { AuthProvider } from './context/AuthContext'
-import ProtectedRoute from './routes/ProtectedRoute'
-import Login from './pages/auth/Login'
-import Register from './pages/auth/Register'
-import FileManager from './pages/home/FileManager'
-import UserProfile from './pages/profile/UserProfile'
-import ImgGen from './pages/img-gen/ImgGen'
-import BillingPageLayout from './pages/billing/BillingPageLayout'
-import DocumentationPage from './pages/doc/DocumentationPage'
-import { ToastContainer } from 'react-toastify'
-import 'react-toastify/dist/ReactToastify.css'
-import ChatAI from './pages/chatAi/chatai'
+import { BrowserRouter, Route, Routes } from 'react-router-dom';
+
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
+import AppLayout from './components/layout/app-layout';
+import { Overview } from './page';
+import Assistant from './pages/Assistant';
+import TrashPage from './pages/BinPage';
+import FilesPage from './pages/FilesPage';
+import HelpPage from './pages/HelpPage';
+import ImagesPage from './pages/ImageGenPage';
+import BillingPage from './pages/InvoicesPage';
+import NotFound from './pages/NotFound';
+import PaymentPage from './pages/PaymentPage';
+import PaymentResultPage from './pages/PaymentResult';
+import PlansPage from './pages/PLan';
+import SearchPage from './pages/SearchPage';
+import SettingsPage from './pages/Seettings';
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <BrowserRouter>
+      <AppLayout>
         <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route element={<ProtectedRoute />}>
-            <Route path="/" element={<FileManager />} />
-            <Route path="/chat" element={<ChatAI />} />
-            <Route path="/img-gen" element={<ImgGen />} />
-            <Route path="/payment" element={<PaymentInitiating />} />
-            <Route path="/payment-status" element={<PaymentStatus />} />
-            <Route path="/profile" element={<UserProfile />} />
-            <Route path="/pricing" element={<BillingPageLayout />} />
-            <Route path="/doc" element={<DocumentationPage />} />
-          </Route>
+          <Route path="/" element={<Overview />} />
+          <Route path="/plans" element={<PlansPage />} />
+          <Route path="/trash" element={<TrashPage />} />
+          <Route path="/ai/chat" element={<Assistant />} />
+          <Route path="/ai/studio" element={<ImagesPage />} />
+          <Route path="/files" element={<FilesPage />} />
+          <Route path="/invoice" element={<BillingPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/help" element={<HelpPage />} />
+          <Route path="/look" element={<SearchPage />} />
+          <Route path="/payment" element={<PaymentPage />} />
+          <Route path="/payment/success" element={<PaymentResultPage status="success" />} />
+          <Route path="/payment/failed" element={<PaymentResultPage status="failed" />} />
+
+          <Route path="*" element={<NotFound />} />
         </Routes>
         <ToastContainer position="top-right" autoClose={4000} />
-      </BrowserRouter>
-    </AuthProvider>
-  )
+      </AppLayout>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;

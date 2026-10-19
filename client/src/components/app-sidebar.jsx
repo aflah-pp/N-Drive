@@ -1,9 +1,7 @@
-import * as React from "react"
-
-import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
-import { NavSecondary } from "@/components/nav-secondary"
-import { NavUser } from "@/components/nav-user"
+import { NavDocuments } from '@/components/nav-documents';
+import { NavMain } from '@/components/nav-main';
+import { NavSecondary } from '@/components/nav-secondary';
+import { NavUser } from '@/components/nav-user';
 import {
   Sidebar,
   SidebarContent,
@@ -12,190 +10,111 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-} from "@/components/ui/sidebar"
-import { TerminalSquareIcon, BotIcon, BookOpenIcon, Settings2Icon, LifeBuoyIcon, SendIcon, FrameIcon, PieChartIcon, MapIcon, TerminalIcon } from "lucide-react"
+} from '@/components/ui/sidebar';
+import {
+  BrainCircuitIcon,
+  CircleHelpIcon,
+  CogIcon,
+  DollarSignIcon,
+  FolderOpen,
+  HardDrive,
+  ImageIcon,
+  LayoutDashboardIcon,
+  Receipt,
+  SearchIcon,
+  Trash2Icon,
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const data = {
   user: {
-    name: "shadcn",
-    email: "m@example.com",
-    avatar: "/avatars/shadcn.jpg",
+    name: 'Admin',
+    email: 'testing@mail.com',
+    avatar: '/avatars/shadcn.jpg',
   },
   navMain: [
     {
-      title: "Playground",
-      url: "#",
-      icon: (
-        <TerminalSquareIcon
-        />
-      ),
-      isActive: true,
-      items: [
-        {
-          title: "History",
-          url: "#",
-        },
-        {
-          title: "Starred",
-          url: "#",
-        },
-        {
-          title: "Settings",
-          url: "#",
-        },
-      ],
+      title: 'Dashboard',
+      url: '/',
+      icon: <LayoutDashboardIcon />,
     },
     {
-      title: "Models",
-      url: "#",
-      icon: (
-        <BotIcon
-        />
-      ),
-      items: [
-        {
-          title: "Genesis",
-          url: "#",
-        },
-        {
-          title: "Explorer",
-          url: "#",
-        },
-        {
-          title: "Quantum",
-          url: "#",
-        },
-      ],
+      title: 'My Files',
+      url: '/files',
+      icon: <FolderOpen />,
     },
     {
-      title: "Documentation",
-      url: "#",
-      icon: (
-        <BookOpenIcon
-        />
-      ),
-      items: [
-        {
-          title: "Introduction",
-          url: "#",
-        },
-        {
-          title: "Get Started",
-          url: "#",
-        },
-        {
-          title: "Tutorials",
-          url: "#",
-        },
-        {
-          title: "Changelog",
-          url: "#",
-        },
-      ],
-    },
-    {
-      title: "Settings",
-      url: "#",
-      icon: (
-        <Settings2Icon
-        />
-      ),
-      items: [
-        {
-          title: "General",
-          url: "#",
-        },
-        {
-          title: "Team",
-          url: "#",
-        },
-        {
-          title: "Billing",
-          url: "#",
-        },
-        {
-          title: "Limits",
-          url: "#",
-        },
-      ],
+      title: 'Bin',
+      url: '/trash',
+      icon: <Trash2Icon />,
     },
   ],
   navSecondary: [
     {
-      title: "Support",
-      url: "#",
-      icon: (
-        <LifeBuoyIcon
-        />
-      ),
+      title: 'Get Help',
+      url: '/help',
+      icon: <CircleHelpIcon />,
     },
     {
-      title: "Feedback",
-      url: "#",
-      icon: (
-        <SendIcon
-        />
-      ),
+      title: 'Search',
+      url: '/look',
+      icon: <SearchIcon />,
     },
   ],
-  projects: [
+  documents: [
     {
-      name: "Design Engineering",
-      url: "#",
-      icon: (
-        <FrameIcon
-        />
-      ),
+      name: 'Chat Assistant',
+      url: '/ai/chat',
+      icon: <BrainCircuitIcon />,
     },
     {
-      name: "Sales & Marketing",
-      url: "#",
-      icon: (
-        <PieChartIcon
-        />
-      ),
-    },
-    {
-      name: "Travel",
-      url: "#",
-      icon: (
-        <MapIcon
-        />
-      ),
+      name: 'Image Studio',
+      url: '/ai/studio',
+      icon: <ImageIcon />,
     },
   ],
-}
-export function AppSidebar({
-  ...props
-}) {
+  document2: [
+    {
+      name: 'Plans',
+      url: '/plans',
+      icon: <DollarSignIcon />,
+    },
+    {
+      name: 'Billing & Receipts',
+      url: '/invoice',
+      icon: <Receipt />,
+    },
+    {
+      name: 'Settings',
+      url: '/settings',
+      icon: <CogIcon />,
+    },
+  ],
+};
+export function AppSidebar({ ...props }) {
   return (
-    <Sidebar
-      className="top-(--header-height) h-[calc(100svh-var(--header-height))]!"
-      {...props}
-    >
+    <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<a href="#" />}>
-              <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-                <TerminalIcon className="size-4" />
-              </div>
-              <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">Acme Inc</span>
-                <span className="truncate text-xs">Enterprise</span>
-              </div>
+            <SidebarMenuButton className="data-[slot=sidebar-menu-button]:p-1.5!" asChild>
+              <Link to={'/'} className="flex w-full items-center gap-2">
+                <HardDrive className="size-5!" />
+                <span className="text-base font-semibold">N Drive.</span>
+              </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
+        <NavMain items={data.navMain} title={'WorkSpace'} />
+        <NavDocuments items={data.documents} title={'Create'} />
+        <NavDocuments items={data.document2} title={'Account'} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={data.user} />
       </SidebarFooter>
     </Sidebar>
-  )
+  );
 }

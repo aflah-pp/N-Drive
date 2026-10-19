@@ -8,8 +8,8 @@ urlpatterns = [
     path("register/", views.register_user, name="register_user"),
     path("login/", views.login_user, name="login_user"),
     path("logout/", views.logout_user, name="logout_user"),
-    path("update/", views.update_user, name="update_user"),
-    path("self/", views.get_self, name="get_user"),
+    path("me/update/", views.update_user, name="update_user"),
+    path("me/", views.get_self, name="get_user"),
     # Package Related
     path("package/", views.get_package_details, name="package_details"),
     path("storage/", views.get_all_storage, name="get_full_storage"),
