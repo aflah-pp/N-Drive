@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useUpdateCurrentUser } from '@/hooks/use-user';
 import useAuthStore from '@/service/store/authStore';
 import PageHead from './shared/PageHead';
-import PlanCard from './shared/PLanCard';
+import PlanCard from './shared/PlanCard';
 import { StorageCard } from './shared/StorageCard';
 
 const TABS = ['Profile', 'Plan & usage', 'Privacy'];
