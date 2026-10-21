@@ -1,169 +1,115 @@
-import { createContext, useEffect, useState } from "react";
-import { jwtDecode } from "jwt-decode";
-import api from "../service/api";
-import { toast } from "react-toastify";
+import { useQueryClient } from '@tanstack/react-query';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-export const AuthContext = createContext();
+import { authKeys, storageKeys } from '@/lib/query-keys';
+import { loginUser, logoutUser, refreshUserToken } from '@/service/endpoints/auth';
+import { getAvailableStorage, getStorageUsage } from '@/service/endpoints/package';
+import { getCurrentUser } from '@/service/endpoints/user';
+import useAuthStore from '../service/store/authStore';
+
+const AuthContext = createContext(null);
+
+async function primeStorageCache(queryClient) {
+  const [usage, all] = await Promise.all([getStorageUsage(), getAvailableStorage()]);
+  queryClient.setQueryData(storageKeys.usage(), usage);
+  queryClient.setQueryData(storageKeys.files(), all);
+  return { usage, all };
+}
 
 export function AuthProvider({ children }) {
-  const [isAuthorized, setIsAuthorized] = useState(false);
-  const [username, setUsername] = useState("");
-  const [storage, setStorage] = useState({});
-  const [token, setToken] = useState(null);
-  const [permission, setPermission] = useState([]);
-  const [folders, setFolders] = useState([]);
-  const [files, setFiles] = useState([]);
+  const queryClient = useQueryClient();
+  const { accessToken, user, isAuthenticated, setAccessToken, setUser, clearAuth } = useAuthStore();
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
 
-  //Auth check
-  const handleAuth = () => {
-    const accessToken = localStorage.getItem("access");
-    if (accessToken) {
+  const bootstrapAuth = useCallback(async () => {
+    try {
+      const data = await refreshUserToken();
+      if (!data?.access) throw new Error('Refresh response did not contain an access token.');
+
+      setAccessToken(data.access);
+
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+      queryClient.setQueryData(authKeys.me(), currentUser);
+
       try {
-        const decoded = jwtDecode(accessToken);
-        const expiry = decoded.exp;
-        const time_now = Date.now() / 1000;
-        if (expiry > time_now) {
-          setIsAuthorized(true);
-          setToken(accessToken);
-        } else {
-          setIsAuthorized(false);
-          setToken(null);
-        }
+        await primeStorageCache(queryClient);
       } catch {
-        setIsAuthorized(false);
-        setToken(null);
+        /* storage failure is non-fatal */
       }
-    } else {
-      setIsAuthorized(false);
-      setToken(null);
-    }
-  };
-
-  //  Fetch username
-  const getUserInfo = async () => {
-    try {
-      const res = await api.get("v1/username/");
-      setUsername(res.data.username);
     } catch {
-      setUsername("");
+      clearAuth();
+      queryClient.removeQueries({ queryKey: authKeys.all });
+      queryClient.removeQueries({ queryKey: storageKeys.all });
+    } finally {
+      setIsBootstrapping(false);
     }
-  };
-
-  //  Fetch total storage usage
-  const getStorageUsed = async () => {
-    try {
-      const res = await api.get("v1/storage/usage/");
-      setStorage(res.data.result);
-    } catch (error) {
-      toast.error("Failed to fetch storage usage");
-      console.error(error);
-    }
-  };
-
-  //  Fetch all root-level files and folders
-  const getStorage = async () => {
-    try {
-      const res = await api.get("v1/storage/");
-      setFolders(res.data.folders);
-      setFiles(res.data.files);
-    } catch (error) {
-      toast.error("Failed to load files/folders.");
-      console.error(error);
-    }
-  };
-
-  //  Create folder
-  const createFolder = async (name) => {
-    try {
-      await api.post("v1/create/folder/", { name });
-      toast.success("📁 Folder created successfully!");
-      await getStorage();
-      await getStorageUsed();
-    } catch (error) {
-      const msg = error?.response?.data?.error || "Failed to create folder";
-      toast.error(msg);
-    }
-  };
-
-  //  Upload file (root or folder)
-  const uploadFile = async (file, folderId = null, onProgress = null) => {
-    try {
-      const formData = new FormData();
-      formData.append("file", file);
-      if (folderId) formData.append("folder_id", folderId);
-
-      await api.post("v1/file/upload/", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-        onUploadProgress: (progressEvent) => {
-          if (onProgress && progressEvent.total) {
-            onProgress(progressEvent); // pass event to UI handler
-          }
-        },
-      });
-
-      toast.success(" File uploaded successfully!");
-      await getStorage();
-      await getStorageUsed();
-    } catch (error) {
-      const msg = error?.response?.data?.error || error?.response?.data?.message || "Upload failed";
-      toast.error(`⚠️ ${msg}`);
-      throw error; // rethrow so frontend can handle if needed
-    }
-  };
-
-  //  Delete file/folder
-  const deleteItem = async (item, type) => {
-    try {
-      const payload = type === "folder" ? { folder_id: item.id } : { file_id: item.id };
-      await api.delete("v1/storage/delete/", { data: payload });
-      toast.success("🗑️ Item deleted successfully!");
-      await getStorage();
-      await getStorageUsed();
-    } catch (error) {
-      const msg =
-        error?.response?.data?.error || error?.response?.data?.message || "Failed to delete item";
-      toast.error(msg);
-    }
-  };
-
-  //  Permissions
-  const getPermission = async () => {
-    try {
-      const res = await api.get("v1/permissions");
-      setPermission(res.data);
-    } catch (error) {
-      toast.error("Failed to load permissions");
-    }
-  };
+  }, [clearAuth, queryClient, setAccessToken, setUser]);
 
   useEffect(() => {
-    handleAuth();
-  }, []);
+    bootstrapAuth();
+  }, [bootstrapAuth]);
 
-  useEffect(() => {
-    if (isAuthorized) {
-      getUserInfo();
-      getPermission();
-      getStorageUsed();
-      getStorage();
+  const login = useCallback(
+    async (credentials) => {
+      const data = await loginUser(credentials);
+      if (!data?.access) throw new Error('Login response did not contain an access token.');
+
+      setAccessToken(data.access);
+
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+      queryClient.setQueryData(authKeys.me(), currentUser);
+
+      try {
+        await primeStorageCache(queryClient);
+      } catch {
+        /* storage failure is non-fatal */
+      }
+
+      return currentUser;
+    },
+    [queryClient, setAccessToken, setUser],
+  );
+
+  const logout = useCallback(async () => {
+    try {
+      await logoutUser();
+    } finally {
+      clearAuth();
+      queryClient.removeQueries({ queryKey: authKeys.all });
+      queryClient.removeQueries({ queryKey: storageKeys.all });
     }
-  }, [isAuthorized]);
+  }, [clearAuth, queryClient]);
 
-  const AuthValue = {
-    isAuthorized,
-    setIsAuthorized,
-    username,
-    token,
-    storage,
-    folders,
-    files,
-    getStorage,
-    getStorageUsed,
-    createFolder,
-    uploadFile,
-    permission,
-    deleteItem,
-  };
+  const refreshUser = useCallback(async () => {
+    const fresh = await getCurrentUser();
+    const normalized = fresh?.user ?? fresh;
+    setUser(normalized);
+    queryClient.setQueryData(['auth', 'me'], normalized);
+    return normalized;
+  }, [queryClient, setUser]);
 
-  return <AuthContext.Provider value={AuthValue}>{children}</AuthContext.Provider>;
+  const value = useMemo(
+    () => ({
+      accessToken,
+      user,
+      isAuthenticated,
+      isBootstrapping,
+      isLoading: isBootstrapping,
+      login,
+      logout,
+      refreshUser,
+    }),
+    [accessToken, user, isAuthenticated, isBootstrapping, login, logout, refreshUser],
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used inside AuthProvider.');
+  return ctx;
 }

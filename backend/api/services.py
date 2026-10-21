@@ -7,13 +7,20 @@ from datetime import timedelta
 from decimal import Decimal
 from io import BytesIO
 
+import requests
 from cryptography.fernet import Fernet
 from django.conf import settings
+from django.contrib.auth import authenticate
+from django.core.files.base import ContentFile
 from django.db import transaction
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from google import genai
 from google.genai import types
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
+from rest_framework_simplejwt.exceptions import TokenError
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from api.utils.pdf_gen import render_to_pdf
@@ -30,20 +37,58 @@ from .models import (
 )
 
 
+class JWTService:
+    """JWT Token based Business Logics
+
+    Includes:
+        create_tokens():returns users access and refresh token
+        token_refresh():refresh token and send new access token
+        blacklist_token():blacklist users refresh token
+    """
+
+    @staticmethod
+    def create_tokens(user):
+        refresh = RefreshToken.for_user(user)
+        return {"access": str(refresh.access_token), "refresh": str(refresh)}
+
+    @staticmethod
+    def token_refresh(*, refresh_token):
+        serializer = TokenRefreshSerializer(data={"refresh": refresh_token})
+        try:
+            serializer.is_valid(raise_exception=True)
+        except TokenError:
+            raise ValidationError({"error": "Invalid or Expired Token"})
+        data = serializer.validated_data
+        return data
+
+    @staticmethod
+    def blacklist_token(refresh_token):
+        if not refresh_token:
+            raise ValidationError({"error": "refresh token missing"})
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except TokenError:
+            raise ValidationError({"error": "invalid or expired refresh token"})
+
+
 class AccountService:
     """Account Based Business logics
 
     Includes:
         get_active_sub(): returns active subscription of authenticated user
         get_active_package():returns package subscribed(on active) by authenticated user
-        get_user_tokens():returns users access and refresh token
-        create:register user.
+        create():register an user.
+        login():Authenticate the user
+        logout_user():blacklist users refresh token to completely remove their signature when logout
     """
 
     @staticmethod
     def get_active_sub(*, user):
         subscription = (
-            user.subscriptions.filter(status=Subscription.SubscriptionStatus.ACTIVE).select_related("package").first()
+            user.subscriptions.filter(status=Subscription.SubscriptionStatus.ACTIVE)
+            .select_related("package")
+            .first()
         )
         return subscription
 
@@ -55,10 +100,10 @@ class AccountService:
         # package = sub.package if sub else None
         return Package.objects.get(is_free=True)
 
-    @staticmethod
-    def get_user_tokens(user):
-        refresh = RefreshToken.for_user(user)
-        return {"refresh": str(refresh), "access": str(refresh.access_token)}
+    # @staticmethod
+    # def get_user_tokens(user):
+    #     refresh = RefreshToken.for_user(user)
+    #     return {"refresh": str(refresh), "access": str(refresh.access_token)}
 
     @staticmethod
     @transaction.atomic
@@ -69,8 +114,27 @@ class AccountService:
         user.set_password(password)
         user.save()
 
-        token = AccountService.get_user_tokens(user)
+        token = JWTService.create_tokens(user)
         return user, token
+
+    @staticmethod
+    def login_user(*, username, password):
+        username = username.strip()
+        user = CustomUser.objects.filter(username__iexact=username).first()
+        if not user:
+            raise ValidationError({"error": "User Not Found"})
+        if not user.is_active:
+            raise ValidationError({"error": "user is not active"})
+        authenticated_user = authenticate(username=user.username, password=password)
+        if not authenticated_user:
+            raise ValidationError({"error": "Invalid Credentials"})
+        token = JWTService.create_tokens(authenticated_user)
+        return authenticated_user, token
+
+    @staticmethod
+    def logout_user(*, refresh_token):
+        JWTService.blacklist_token(refresh_token=refresh_token)
+        return True
 
 
 class PackageService:
@@ -103,14 +167,18 @@ class PackageService:
         total_mb = PackageService.bytes_to_mb(size_in_bytes=max_allowed_storage_bytes)
 
         used_percentage = (
-            round((total_used_bytes / max_allowed_storage_bytes) * 100, 2) if max_allowed_storage_bytes > 0 else 0
+            round((total_used_bytes / max_allowed_storage_bytes) * 100, 2)
+            if max_allowed_storage_bytes > 0
+            else 0
         )
         response = {
             "used_storage": f"{used_mb}Mb",
             "on_bin": f"{in_bin} Mb",
             "remaining_storage": f"{remaining_mb}Mb",
             "total_storage": f"{total_mb}Mb",
-            "used_percentage": f"{used_percentage}%" if used_percentage < 100 else "over quota",
+            "used_percentage": f"{used_percentage}%"
+            if used_percentage < 100
+            else "over quota",
         }
         return response
 
@@ -134,7 +202,7 @@ class PaymentService:
     ):
         package = Package.objects.get(id=package_id)
         if not package:
-            return ValueError("No package found")
+            raise ValidationError("No package found")
 
         base_amount = Decimal(package.price)
         tax = base_amount * Decimal("0.03")
@@ -143,12 +211,19 @@ class PaymentService:
         tx_ref = str(uuid.uuid4())
         order_id = f"order_{tx_ref[:8]}"
 
-        Transaction.objects.create(ref=tx_ref, user=user, package=package, amount=total_amount, status="pending")
+        Transaction.objects.create(
+            ref=tx_ref,
+            user=user,
+            package=package,
+            amount=total_amount,
+            status="pending",
+            created_by=user,
+        )
 
         payment_link = f"/payment?order_id={order_id}&amount={total_amount}"
 
         response = {
-            "message": "Order Successfully Purchased,Thank You",
+            "message": "Purchase Initiated,Thank You",
             "payment_link": payment_link,
             "order_id": order_id,
             "amount": total_amount,
@@ -160,7 +235,9 @@ class PaymentService:
     @transaction.atomic
     def status(*, user, orderId, payment_status):
         tx_ref = orderId[6:]
-        transaction = Transaction.objects.select_for_update().get(ref__startswith=tx_ref)
+        transaction = Transaction.objects.select_for_update().get(
+            ref__startswith=tx_ref
+        )
         if transaction.status in ["completed", "failed"]:
             return {
                 "order_id": orderId,
@@ -174,11 +251,17 @@ class PaymentService:
             active_sub_exists = Subscription.objects.filter(
                 user=user, status=Subscription.SubscriptionStatus.ACTIVE
             ).exists()
-
+            que_sub_exists = Subscription.objects.filter(
+                user=user, status=Subscription.SubscriptionStatus.ON_QUEUE
+            ).exists()
             if active_sub_exists:
-                subscription = Subscription.objects.get(user=user, status=Subscription.SubscriptionStatus.ACTIVE)
+                subscription = Subscription.objects.get(
+                    user=user, status=Subscription.SubscriptionStatus.ACTIVE
+                )
                 active_from_date = subscription.active_to
-                active_to_date = active_from_date + timedelta(days=package.plan_validity)
+                active_to_date = active_from_date + timedelta(
+                    days=package.plan_validity
+                )
 
                 sub = Subscription.objects.create(
                     user=user,
@@ -187,8 +270,15 @@ class PaymentService:
                     active_to=active_to_date,
                     status="ON_QUEUE",
                 )
+            elif que_sub_exists:
+                raise ValidationError(
+                    {"message": "You Already Have a subscription on Que"}
+                )
+
             else:
-                active_to_date = timezone.now().date() + timedelta(days=package.plan_validity)
+                active_to_date = timezone.now().date() + timedelta(
+                    days=package.plan_validity
+                )
 
                 sub = Subscription.objects.create(
                     user=user,
@@ -198,10 +288,8 @@ class PaymentService:
                     status="ACTIVE",
                 )
 
-            transaction.status = "completed"
-            transaction.subscription = sub
-            user.package = package
-            user.save()
+            transaction.status = "completed" if not que_sub_exists else "failed"
+            transaction.subscription = sub if not que_sub_exists else None
 
             success_url = f"/payment-status?order_id={orderId}&status=success"
         else:
@@ -238,8 +326,6 @@ class PaymentService:
         pdf = render_to_pdf(template_src="invoice.html", context_dict=data)
         return pdf, transaction.ref
 
-    pass
-
 
 class FileService:
     """File Based Business logics
@@ -258,18 +344,24 @@ class FileService:
 
         max_upload_size = package.max_upload_size
         if uploaded_file.size > max_upload_size:
-            raise ValueError(f"File too large.Max Size for {package.name} is {max_upload_size / (1024 * 1024):.2f} mb")
+            raise ValidationError(
+                {
+                    "error": f"File too large.Max Size for {package.name} is {max_upload_size / (1024 * 1024):.2f} mb"
+                }
+            )
         total_used = sum(file.size for file in user.files.all())
 
         if total_used + uploaded_file.size > max_upload_size:
-            raise ValueError("You  exceeded your package allowed storage ")
+            raise ValidationError(
+                {"error": "You  exceeded your package allowed storage "}
+            )
 
         folder = None
 
         if folder_id:
             folder = Folder.objects.filter(id=folder_id, user=user).first()
             if not folder:
-                raise LookupError("Folder not Found")
+                raise ValidationError({"error": "Folder not Found"})
 
         return UserFile.objects.create(
             user=user,
@@ -285,7 +377,7 @@ class FileService:
         file_obj = UserFile.objects.filter(unique_link=unique_link).first()
 
         if not file_obj:
-            return LookupError("File not Found")
+            raise ValidationError({"error": "File not Found"})
         file_path = file_obj.file.path
         file_handle = open(file_path, "rb")
         return file_handle, file_obj
@@ -296,7 +388,7 @@ class FileService:
         file_obj = UserFile.objects.filter(id=file_id, user=user).first()
 
         if not file_obj:
-            raise LookupError("File not Found")
+            raise ValidationError("File not Found")
 
         # if file_obj and os.path.exists(file_obj.file.path):
         #     os.remove(file_obj.file.path)
@@ -321,19 +413,19 @@ class FolderService:
     def create_folder(*, user, name) -> Folder:
         name = name.strip()
         if not name:
-            raise ValueError({"name is required"})
+            raise ValidationError({"name is required"})
         return Folder.objects.create(user=user, name=name, created_by=user)
 
     @staticmethod
     def download_folder(*, unique_link):
         folder_obj = Folder.objects.filter(unique_link=unique_link).first()
         if not folder_obj:
-            raise LookupError("Folder Not Found")
+            raise ValidationError("Folder Not Found")
 
         file_in = folder_obj.files.all()
 
         if not file_in:
-            raise ValueError("No files in this Folder")
+            raise ValidationError("No files in this Folder")
 
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
@@ -351,9 +443,11 @@ class FolderService:
         try:
             folder = Folder.objects.filter(id=folder_id, user=user).first()
         except Folder.DoesNotExist:
-            raise ValueError("Folder Not Found")
+            raise ValidationError("Folder Not Found")
 
-        folder.files.all().update(deleted_by=user, deleted_at=timezone.now(), is_deleted=True)
+        folder.files.all().update(
+            deleted_by=user, deleted_at=timezone.now(), is_deleted=True
+        )
 
         folder.is_deleted = True
         folder.deleted_at = timezone.now()
@@ -412,6 +506,7 @@ class AIService:
 
         if not package or not package.chat_enabled:
             raise PermissionError({"Chat AI is not available for your package"})
+
         session = AIService.get_session(user=user)
         if session:
             try:
@@ -424,7 +519,9 @@ class AIService:
         conversation = [
             item
             for item in conversation
-            if isinstance(item, dict) and isinstance(item.get("role"), str) and isinstance(item.get("content"), str)
+            if isinstance(item, dict)
+            and isinstance(item.get("role"), str)
+            and isinstance(item.get("content"), str)
         ]
         conversation.append({"role": "user", "content": message})
 
@@ -432,14 +529,20 @@ class AIService:
         google_contents = []
         for item in conversation:
             role = "model" if item["role"] in ["assistant", "model"] else "user"
-            google_contents.append(types.Content(role=role, parts=[types.Part.from_text(text=item["content"])]))
+            google_contents.append(
+                types.Content(
+                    role=role, parts=[types.Part.from_text(text=item["content"])]
+                )
+            )
 
         client = genai.Client(api_key=settings.GOOGLE_API_KEY)
 
         response = client.models.generate_content(
             model=modelId,
             contents=google_contents,
-            config=types.GenerateContentConfig(system_instruction="You are a Helpfull AI Assistant"),
+            config=types.GenerateContentConfig(
+                system_instruction="You are a Helpfull AI Assistant"
+            ),
         )
         reply = response.text
         if not reply:
@@ -457,8 +560,16 @@ class AIService:
     @staticmethod
     @transaction.atomic
     def img_save(*, user, images_b64):
-        GeneratedImage.objects.create(user=user, image_url=images_b64, created_by=user)
-        return
+        resp = requests.get(images_b64, timeout=30)
+        resp.raise_for_status()
+
+        img = GeneratedImage(user=user, created_by=user)
+        img.image_url.save(
+            f"{uuid.uuid4().hex}.webp",
+            ContentFile(resp.content),
+            save=True,
+        )
+        return img
 
     @staticmethod
     def all_image(*, user):
@@ -466,9 +577,8 @@ class AIService:
 
     @staticmethod
     def delete_image(*, user, img_id):
-        img = GeneratedImage.objects.get(id=img_id)
+        img = get_object_or_404(GeneratedImage, id=img_id, user=user)
         img.delete()
-        return
 
 
 class BinService:
@@ -516,10 +626,12 @@ class BinService:
             folder.deleted_at = None
             folder.is_deleted = False
             folder.save(update_fields=("deleted_by", "deleted_at", "is_deleted"))
-            UserFile.objects.filter(user=user, parent_folder=folder, is_deleted=True).update(
+            UserFile.objects.filter(
+                user=user, parent_folder=folder, is_deleted=True
+            ).update(
                 deleted_by=None,
                 deleted_at=None,
                 is_deleted=False,
             )
         else:
-            return ValueError("Invalid Item Type")
+            raise ValidationError("Invalid Item Type")

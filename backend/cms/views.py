@@ -36,13 +36,15 @@ def dashboard(request):
     last_30 = now - timedelta(days=30)
     last_7 = now - timedelta(days=7)
 
-    total_revenue = Transaction.objects.filter(status="completed").aggregate(t=Sum("amount"))["t"] or Decimal("0")
-    revenue_30d = Transaction.objects.filter(status="completed", created_at__gte=last_30).aggregate(t=Sum("amount"))[
-        "t"
-    ] or Decimal("0")
-    revenue_7d = Transaction.objects.filter(status="completed", created_at__gte=last_7).aggregate(t=Sum("amount"))[
-        "t"
-    ] or Decimal("0")
+    total_revenue = Transaction.objects.filter(status="completed").aggregate(
+        t=Sum("amount")
+    )["t"] or Decimal("0")
+    revenue_30d = Transaction.objects.filter(
+        status="completed", created_at__gte=last_30
+    ).aggregate(t=Sum("amount"))["t"] or Decimal("0")
+    revenue_7d = Transaction.objects.filter(
+        status="completed", created_at__gte=last_7
+    ).aggregate(t=Sum("amount"))["t"] or Decimal("0")
 
     revenue_by_package = (
         Transaction.objects.filter(status="completed")
@@ -52,7 +54,9 @@ def dashboard(request):
     )
 
     txn_status = (
-        Transaction.objects.values("status").annotate(count=Count("id"), total=Sum("amount")).order_by("status")
+        Transaction.objects.values("status")
+        .annotate(count=Count("id"), total=Sum("amount"))
+        .order_by("status")
     )
 
     total_users = User.objects.count()
@@ -70,7 +74,9 @@ def dashboard(request):
     ).select_related("user", "package")
 
     total_files = UserFile.objects.filter(is_deleted=False).count()
-    total_storage = UserFile.objects.filter(is_deleted=False).aggregate(t=Sum("size"))["t"] or 0
+    total_storage = (
+        UserFile.objects.filter(is_deleted=False).aggregate(t=Sum("size"))["t"] or 0
+    )
     total_folders = Folder.objects.filter(is_deleted=False).count()
 
     total_packages = Package.objects.count()
@@ -93,7 +99,9 @@ def dashboard(request):
             created_at__gte=month_start,
             created_at__lt=month_end,
         ).aggregate(t=Sum("amount"))["t"] or Decimal("0")
-        monthly_revenue.append({"month": month_start.strftime("%b %Y"), "total": float(total)})
+        monthly_revenue.append(
+            {"month": month_start.strftime("%b %Y"), "total": float(total)}
+        )
 
     max_monthly = max([m["total"] for m in monthly_revenue] + [1])
 
@@ -199,7 +207,10 @@ def user_detail(request, pk):
         "transactions": user.transactions.select_related("package")[:20],
         "files": user.files.filter(is_deleted=False)[:20],
         "folders": user.folders.filter(is_deleted=False),
-        "total_spent": user.transactions.filter(status="completed").aggregate(t=Sum("amount"))["t"] or 0,
+        "total_spent": user.transactions.filter(status="completed").aggregate(
+            t=Sum("amount")
+        )["t"]
+        or 0,
     }
     return render(request, "users/detail.html", context)
 
@@ -266,7 +277,9 @@ def package_create(request):
             return redirect("cms:package_list")
     else:
         form = PackageForm()
-    return render(request, "packages/form.html", {"form": form, "title": "Create Package"})
+    return render(
+        request, "packages/form.html", {"form": form, "title": "Create Package"}
+    )
 
 
 @staff_member_required
@@ -280,7 +293,9 @@ def package_update(request, pk):
             return redirect("cms:package_list")
     else:
         form = PackageForm(instance=pkg)
-    return render(request, "packages/form.html", {"form": form, "title": "Edit Package"})
+    return render(
+        request, "packages/form.html", {"form": form, "title": "Edit Package"}
+    )
 
 
 @staff_member_required
@@ -303,11 +318,15 @@ def package_delete(request, pk):
 def subscription_list(request):
     q = request.GET.get("q", "")
     status = request.GET.get("status", "")
-    subs = Subscription.objects.select_related("user", "package").order_by("-created_at")
+    subs = Subscription.objects.select_related("user", "package").order_by(
+        "-created_at"
+    )
 
     if q:
         subs = subs.filter(
-            Q(user__username__icontains=q) | Q(user__email__icontains=q) | Q(package__name__icontains=q)
+            Q(user__username__icontains=q)
+            | Q(user__email__icontains=q)
+            | Q(package__name__icontains=q)
         )
     if status:
         subs = subs.filter(status=status)
@@ -336,7 +355,11 @@ def subscription_create(request):
             return redirect("cms:subscription_list")
     else:
         form = SubscriptionForm()
-    return render(request, "subscriptions/form.html", {"form": form, "title": "Create Subscription"})
+    return render(
+        request,
+        "subscriptions/form.html",
+        {"form": form, "title": "Create Subscription"},
+    )
 
 
 @staff_member_required
@@ -350,7 +373,9 @@ def subscription_update(request, pk):
             return redirect("cms:subscription_list")
     else:
         form = SubscriptionForm(instance=sub)
-    return render(request, "subscriptions/form.html", {"form": form, "title": "Edit Subscription"})
+    return render(
+        request, "subscriptions/form.html", {"form": form, "title": "Edit Subscription"}
+    )
 
 
 @staff_member_required
@@ -375,7 +400,9 @@ def transaction_list(request):
     status = request.GET.get("status", "")
     date_range = request.GET.get("range", "30")
 
-    txns = Transaction.objects.select_related("user", "package", "subscription").order_by("-created_at")
+    txns = Transaction.objects.select_related(
+        "user", "package", "subscription"
+    ).order_by("-created_at")
 
     if q:
         txns = txns.filter(
@@ -390,7 +417,9 @@ def transaction_list(request):
         since = timezone.now() - timedelta(days=int(date_range))
         txns = txns.filter(created_at__gte=since)
 
-    completed_total = txns.filter(status="completed").aggregate(t=Sum("amount"))["t"] or 0
+    completed_total = (
+        txns.filter(status="completed").aggregate(t=Sum("amount"))["t"] or 0
+    )
 
     paginator = Paginator(txns, 25)
     page_obj = paginator.get_page(request.GET.get("page", 1))
@@ -414,12 +443,20 @@ def transaction_create(request):
     if request.method == "POST":
         form = TransactionForm(request.POST)
         if form.is_valid():
-            form.save()
+            transaction = form.save(commit=False)
+            transaction.created_by = request.user
+            transaction.save()
+
             messages.success(request, "Transaction created.")
             return redirect("cms:transaction_list")
     else:
         form = TransactionForm()
-    return render(request, "transactions/form.html", {"form": form, "title": "Create Transaction"})
+
+    return render(
+        request,
+        "transactions/form.html",
+        {"form": form, "title": "Create Transaction"},
+    )
 
 
 @staff_member_required
@@ -433,7 +470,9 @@ def transaction_update(request, pk):
             return redirect("cms:transaction_list")
     else:
         form = TransactionForm(instance=txn)
-    return render(request, "transactions/form.html", {"form": form, "title": "Edit Transaction"})
+    return render(
+        request, "transactions/form.html", {"form": form, "title": "Edit Transaction"}
+    )
 
 
 @staff_member_required
@@ -448,68 +487,5 @@ def transaction_delete(request, pk):
             "object": txn,
             "type": "Transaction",
             "cancel_url": "cms:transaction_list",
-        },
-    )
-
-
-@staff_member_required
-def file_list(request):
-    q = request.GET.get("q", "")
-    files = UserFile.objects.filter(is_deleted=False).select_related("user", "parent_folder").order_by("-uploaded_at")
-
-    if q:
-        files = files.filter(Q(filename__icontains=q) | Q(user__username__icontains=q))
-
-    total_size = files.aggregate(t=Sum("size"))["t"] or 0
-
-    paginator = Paginator(files, 25)
-    page_obj = paginator.get_page(request.GET.get("page", 1))
-    return render(
-        request,
-        "files/file_list.html",
-        {"page_obj": page_obj, "q": q, "total_size": total_size},
-    )
-
-
-@staff_member_required
-def file_delete(request, pk):
-    f = get_object_or_404(UserFile, pk=pk)
-    if request.method == "POST":
-        return safe_delete(request, f, "cms:file_list", "File")
-    return render(
-        request,
-        "partials/confirm_delete.html",
-        {
-            "object": f,
-            "type": "File",
-            "cancel_url": "cms:file_list",
-        },
-    )
-
-
-@staff_member_required
-def folder_list(request):
-    q = request.GET.get("q", "")
-    folders = Folder.objects.filter(is_deleted=False).select_related("user").order_by("name")
-    if q:
-        folders = folders.filter(Q(name__icontains=q) | Q(user__username__icontains=q))
-
-    paginator = Paginator(folders, 25)
-    page_obj = paginator.get_page(request.GET.get("page", 1))
-    return render(request, "files/folder_list.html", {"page_obj": page_obj, "q": q})
-
-
-@staff_member_required
-def folder_delete(request, pk):
-    folder = get_object_or_404(Folder, pk=pk)
-    if request.method == "POST":
-        return safe_delete(request, folder, "cms:folder_list", "Folder")
-    return render(
-        request,
-        "partials/confirm_delete.html",
-        {
-            "object": folder,
-            "type": "Folder",
-            "cancel_url": "cms:folder_list",
         },
     )

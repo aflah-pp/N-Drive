@@ -1,4 +1,4 @@
-import { create } from "zustand";
+import { create } from 'zustand';
 
 const useAuthStore = create((set) => ({
   accessToken: null,
@@ -10,16 +10,19 @@ const useAuthStore = create((set) => ({
       accessToken,
       isAuthenticated: Boolean(accessToken),
     }),
+
   setUser: (user) =>
     set({
       user,
     }),
-  setAuth: (accessToken, user) =>
+
+  setAuth: ({ accessToken, user }) =>
     set({
       accessToken,
       user,
       isAuthenticated: Boolean(accessToken),
     }),
+
   clearAuth: () =>
     set({
       accessToken: null,

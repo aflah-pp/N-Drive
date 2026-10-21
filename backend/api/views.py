@@ -8,24 +8,56 @@ from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import EncryptedChatSession, Folder, Package, Transaction, UserFile
+from .models import (
+    EncryptedChatSession,
+    Folder,
+    Package,
+    Transaction,
+    UserFile,
+)
 from .serializers import (
     FolderSerializer,
+    ImageGeneratedSerializer,
     PackageSerializer,
     SubscriptionSerializer,
+    TransactionSerializer,
     UpdateUserSerializer,
     UserFileSerializer,
     UserRegisterSerializer,
     UserSerializer,
 )
-from .services import AccountService, AIService, BinService, FileService, FolderService, PackageService, PaymentService
+from .services import (
+    AccountService,
+    AIService,
+    BinService,
+    FileService,
+    FolderService,
+    JWTService,
+    PackageService,
+    PaymentService,
+)
 
 STABLE_HORDE_URL = settings.STABLE_HORDE_URL
 API_KEY = settings.API_KEY
 GOOGLE_API_KEY = settings.GOOGLE_API_KEY
+
+
+def set_refresh_cookie(response, refresh_token):
+    response.set_cookie(
+        key=settings.JWT_REFRESH_COOKIE_NAME,
+        value=refresh_token,
+        max_age=settings.JWT_REFRESH_COOKIE_MAX_AGE,
+        httponly=True,
+        secure=settings.JWT_REFRESH_COOKIE_SECURE,
+        samesite=settings.JWT_REFRESH_COOKIE_SAMESITE,
+        domain=settings.JWT_REFRESH_COOKIE_DOMAIN,
+        path=settings.JWT_REFRESH_COOKIE_PATH,
+    )
+    return response
 
 
 @api_view(["POST"])
@@ -60,13 +92,62 @@ def register_user(request):
 
     user, token = AccountService.create(serializer.validated_data)
 
-    return Response(
+    response = Response(
         {
             "message": "User Created SuccessFully",
             "user": UserSerializer(user).data,
             "token": token,
         },
         status=status.HTTP_201_CREATED,
+    )
+    return set_refresh_cookie(response, token["refresh"])
+
+
+@api_view(["POST"])
+def login_user(request):
+    data = request.data
+    username = data.get("username")
+    password = data.get("password")
+
+    if not username:
+        raise ValidationError({"error": "Username is Required"})
+    if not password:
+        raise ValidationError({"error": "Password is Required"})
+    user, tokens = AccountService.login_user(username=username, password=password)
+    response = Response(
+        {
+            "message": "Logged-In Successfully",
+            "user": UserSerializer(user).data,
+            "access": tokens["access"],
+        },
+        status=status.HTTP_202_ACCEPTED,
+    )
+    return set_refresh_cookie(response, tokens["refresh"])
+
+
+@api_view(["POST"])
+def refresh_token(request):
+    refresh_token = request.COOKIES.get(settings.JWT_REFRESH_COOKIE_NAME)
+    if not refresh_token:
+        raise ValidationError({"error": "refresh token missing!!"})
+    data = JWTService.token_refresh(refresh_token=refresh_token)
+    response = Response(
+        {"message": "Token Refreshed Successfully", "access": data["access"]},
+        status=status.HTTP_200_OK,
+    )
+    if "refresh" in data:
+        return set_refresh_cookie(response, data["refresh"])
+    return response
+
+
+@api_view(["POST"])
+def logout_user(request):
+    refresh_token = request.COOKIES.get(settings.JWT_REFRESH_COOKIE_NAME)
+    if not refresh_token:
+        raise ValidationError({"error": "refresh token missin!!"})
+    AccountService.logout_user(refresh_token=refresh_token)
+    return Response(
+        {"message": "Log out SuccessFull"}, status=status.HTTP_204_NO_CONTENT
     )
 
 
@@ -113,7 +194,9 @@ def get_self(request):
     user_serializer = UserSerializer(user)
     active_sub = AccountService.get_active_sub(user=user)
     subscription_data = SubscriptionSerializer(active_sub).data if active_sub else None
-    return Response({"user": {**user_serializer.data, "subscription": subscription_data}})
+    return Response(
+        {"user": {**user_serializer.data, "subscription": subscription_data}}
+    )
 
 
 @api_view(["PUT"])
@@ -156,12 +239,15 @@ def update_user(request):
                 }
     """
 
-    serializer = UpdateUserSerializer(user=request.date, data=request.data, partial=True)
+    serializer = UpdateUserSerializer(
+        user=request.date, data=request.data, partial=True
+    )
     serializer.is_valid(raise_exception=True)
     user = serializer.save()
 
     return Response(
-        {"message": "User Updated SuccessFully", "user": UserSerializer(user).data}, status=status.HTTP_200_OK
+        {"message": "User Updated SuccessFully", "user": UserSerializer(user).data},
+        status=status.HTTP_200_OK,
     )
 
 
@@ -241,7 +327,9 @@ def initiate_payment(request):
 
     result = PaymentService.initiate(user=user, package_id=package_id)
 
-    return Response({"status": "Completed", "result": result}, status=status.HTTP_200_OK)
+    return Response(
+        {"status": "Completed", "result": result}, status=status.HTTP_200_OK
+    )
 
 
 @api_view(["POST"])
@@ -278,8 +366,12 @@ def payment_status(request):
         return Response({"error": "Missing order_id "}, status=400)
 
     try:
-        result = PaymentService.status(user=user, orderId=order_id, payment_status=payment_status)
-        return Response({"status": "Completed", "result": result}, status=status.HTTP_200_OK)
+        result = PaymentService.status(
+            user=user, orderId=order_id, payment_status=payment_status
+        )
+        return Response(
+            {"status": "Completed", "result": result}, status=status.HTTP_200_OK
+        )
 
     except Transaction.DoesNotExist:
         return Response({"error": "Transaction not found"}, status=404)
@@ -290,8 +382,13 @@ def payment_status(request):
 def get_user_transactions(request):
     user = request.user
     transactions = PaymentService.user_transactions(user=user)
+    serializer = TransactionSerializer(transactions, many=True)
     return Response(
-        {"message": "Transactions fetched Successfully", "transactions": transactions}, status=status.HTTP_200_OK
+        {
+            "message": "Transactions fetched Successfully",
+            "transactions": serializer.data,
+        },
+        status=status.HTTP_200_OK,
     )
 
 
@@ -302,7 +399,10 @@ def get_user_invoice(request, transaction_id):
     transaction = get_object_or_404(Transaction, id=transaction_id)
     result, invoice_id = PaymentService.invoice_gen(user=user, transaction=transaction)
     if not result:
-        return Response({"error": "Could not generate receipt PDF"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"error": "Could not generate receipt PDF"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     response = HttpResponse(result, content_type="application/pdf")
     filename = f"Invoice_{invoice_id}.pdf"
@@ -322,10 +422,16 @@ def get_all_storage(request):
         Prefetch("files", queryset=UserFile.objects.filter(user=user, is_deleted=False))
     ).filter(user=user, is_deleted=False)
     # Files directly in root directory
-    root_files = UserFile.objects.filter(user=user, parent_folder__isnull=True, is_deleted=False)
+    root_files = UserFile.objects.filter(
+        user=user, parent_folder__isnull=True, is_deleted=False
+    )
 
-    folder_serializer = FolderSerializer(folders, many=True, context={"request": request})
-    file_serializer = UserFileSerializer(root_files, many=True, context={"request": request})
+    folder_serializer = FolderSerializer(
+        folders, many=True, context={"request": request}
+    )
+    file_serializer = UserFileSerializer(
+        root_files, many=True, context={"request": request}
+    )
 
     return Response({"folders": folder_serializer.data, "files": file_serializer.data})
 
@@ -339,21 +445,34 @@ def get_bin_storage(request):
     folders = Folder.objects.prefetch_related(
         Prefetch("files", queryset=UserFile.objects.filter(user=user, is_deleted=True))
     ).filter(user=user, is_deleted=True)
-    root_files = UserFile.objects.filter(user=user, parent_folder__isnull=True, is_deleted=True)
+    root_files = UserFile.objects.filter(
+        user=user, parent_folder__isnull=True, is_deleted=True
+    )
 
-    folder_serializer = FolderSerializer(folders, many=True, context={"request": request})
-    file_serializer = UserFileSerializer(root_files, many=True, context={"request": request})
+    folder_serializer = FolderSerializer(
+        folders, many=True, context={"request": request}
+    )
+    file_serializer = UserFileSerializer(
+        root_files, many=True, context={"request": request}
+    )
 
-    return Response({"deleted_folders": folder_serializer.data, "deleted_files": file_serializer.data})
+    return Response(
+        {
+            "deleted_folders": folder_serializer.data,
+            "deleted_files": file_serializer.data,
+        }
+    )
 
 
-@api_view(["GET"])
+@api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def restore_bin_item(request, item_type, item_id):
     """Restores Users files or Folders from Bin making it no Deleted"""
     user = request.user
     BinService.restore_item(user=user, item_type=item_type, item_id=item_id)
-    return Response({"message": "Item Restored Successfully"}, status=status.HTTP_200_OK)
+    return Response(
+        {"message": "Item Restored Successfully"}, status=status.HTTP_200_OK
+    )
 
 
 @api_view(["POST"])
@@ -365,7 +484,9 @@ def restore_bin(request):
     folders = Folder.objects.prefetch_related(
         Prefetch("files", queryset=UserFile.objects.filter(user=user, is_deleted=True))
     ).filter(user=user, is_deleted=True)
-    root_files = UserFile.objects.filter(user=user, parent_folder__isnull=True, is_deleted=True)
+    root_files = UserFile.objects.filter(
+        user=user, parent_folder__isnull=True, is_deleted=True
+    )
     BinService.restore(folders=folders, files=root_files)
 
     return Response({"message": "Bin has been Restored"}, status=status.HTTP_200_OK)
@@ -381,11 +502,15 @@ def clear_bin(request):
     folders = Folder.objects.prefetch_related(
         Prefetch("files", queryset=UserFile.objects.filter(user=user, is_deleted=True))
     ).filter(user=user, is_deleted=True)
-    root_files = UserFile.objects.filter(user=user, parent_folder__isnull=True, is_deleted=True)
+    root_files = UserFile.objects.filter(
+        user=user, parent_folder__isnull=True, is_deleted=True
+    )
 
     folders.delete()
     root_files.delete()
-    return Response({"message": "All items in Bin is cleared."}, status=status.HTTP_200_OK)
+    return Response(
+        {"message": "All items in Bin is cleared."}, status=status.HTTP_200_OK
+    )
 
 
 @api_view(["GET"])
@@ -411,7 +536,9 @@ def upload_file(request):
     if not uploaded_file:
         return Response({"error": "No file provided"}, status=400)
 
-    user_file = FileService.upload_file(user=user, uploaded_file=uploaded_file, folder_id=folder_id)
+    user_file = FileService.upload_file(
+        user=user, uploaded_file=uploaded_file, folder_id=folder_id
+    )
 
     serializer = UserFileSerializer(user_file, context={"request": request})
     return Response({"message": "File uploaded successfully", "file": serializer.data})
@@ -426,7 +553,9 @@ def create_folder(request):
     folder_name = request.data.get("name")
     folder = FolderService.create_folder(user=user, name=folder_name)
     if isinstance(folder, ValueError):
-        return Response({"error": "Name is Required"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"error": "Name is Required"}, status=status.HTTP_400_BAD_REQUEST
+        )
 
     serializer = FolderSerializer(folder, context={"request": request})
     return Response({"message": "Folder created", "folder": serializer.data})
@@ -441,7 +570,10 @@ def download_folder(request, unique_link):
     if isinstance(result, LookupError):
         return Response({"error": "Folder Not Found"}, status=status.HTTP_404_NOT_FOUND)
     if isinstance(result, ValueError):
-        return Response({"error": "No files Found in this Folder."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"error": "No files Found in this Folder."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
     zip_buffer, folder = result
 
     response = HttpResponse(zip_buffer, content_type="application/zip")
@@ -502,7 +634,7 @@ def chat_ai(request):
         return Response({"error": "Message required"}, status=400)
 
     modelId = "gemini-3.6-flash"
-    # model_id = "gemini-3.8-flash"
+    # modelId = "gemini-3.8-flash"
 
     try:
         result = AIService.send_message(user=user, message=message, modelId=modelId)
@@ -510,7 +642,7 @@ def chat_ai(request):
         return Response({"reply": reply, "conversation": conversation}, status=200)
 
     except Exception as e:
-        return Response({"error": f"Google SDK Exception: {e!s}"}, status=500)
+        return Response({"error": f"error {e!s}"}, status=500)
 
 
 @api_view(["POST"])
@@ -534,7 +666,9 @@ def save_chat_session(request):
         merged_conversation = old_conversation + conversation
         AIService.save_conversation(session=session, conversation=merged_conversation)
 
-        return Response({"message": "Chat saved successfully", "created": created}, status=200)
+        return Response(
+            {"message": "Chat saved successfully", "created": created}, status=200
+        )
 
     except Exception as e:
         return Response({"error": str(e)}, status=500)
@@ -567,17 +701,18 @@ def reset_chat_session(request):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def generate_image(request):
-    """Image Generation:-
-    user sends Prompt -> server checks whether if user have image generation in his subscribed package or not-
-    -> backend send that prompt and take reply from api key -> return image to frontend"""
     user = request.user
     prompt = request.data.get("prompt")
 
     if not prompt:
         return Response({"error": "Prompt required"}, status=400)
+
     package = AccountService.get_active_package(user=user)
-    if not package.image_gen_enabled:
-        return Response({"error": "Image generation not enabled for your package"}, status=403)
+    if not package or not package.image_gen_enabled:
+        return Response(
+            {"error": "Image generation not enabled for your package"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
     try:
         payload = {
@@ -587,59 +722,76 @@ def generate_image(request):
             "sampler_name": "k_euler",
             "nsfw": True,
         }
-
         headers = {"apikey": API_KEY, "Content-Type": "application/json"}
 
         response = requests.post(STABLE_HORDE_URL, headers=headers, json=payload)
-        if response.status_code not in [200, 202]:
+        if response.status_code not in (200, 202):
             return Response(
                 {
                     "error": f"Stable Horde API error {response.status_code}",
                     "details": response.text,
                 },
-                status=500,
+                status=status.HTTP_502_BAD_GATEWAY,
             )
 
-        data = response.json()
-        prediction_id = data.get("id")
+        prediction_id = response.json().get("id")
         if not prediction_id:
-            return Response({"error": "No prediction ID returned"}, status=500)
+            return Response(
+                {"error": "No prediction ID returned"},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
         result_url = f"https://stablehorde.net/api/v2/generate/status/{prediction_id}"
-        while True:
-            r = requests.get(result_url, headers=headers)
+        images_url = None
+        for _ in range(90):  # max ~3 minutes
+            r = requests.get(result_url, headers=headers, timeout=10)
             r_data = r.json()
             if r_data.get("done"):
+                images_url = r_data.get("generations", [{}])[0].get("img")
                 break
             time.sleep(2)
 
-        images_b64 = r_data.get("generations", [{}])[0].get("img")
-        if not images_b64:
-            return Response({"error": "No image returned"}, status=500)
+        if not images_url:
+            return Response(
+                {"error": "No image returned in time"},
+                status=status.HTTP_504_GATEWAY_TIMEOUT,
+            )
 
-        AIService.img_save(user=user, images_b64=images_b64)
+        img = AIService.img_save(user=user, images_b64=images_url)
 
-        return Response({"image_base64": images_b64})
+        serializer = ImageGeneratedSerializer(img, context={"request": request})
+        return Response(
+            {"message": "Image generated", "result": serializer.data},
+            status=status.HTTP_201_CREATED,
+        )
 
     except Exception as e:
-        return Response({"error": str(e)}, status=500)
+        return Response(
+            {"error": f"Image generation failed: {e!s}"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def get_user_generated_images(request):
-    """Returns List of AI generated Image By User"""
+    """Returns List of AI Generated Images By User"""
     user = request.user
-    result = AIService.all_image(user=user)
-    if not result:
-        return Response({"error": "No generated image found"}, status=status.HTTP_400_BAD_REQUEST)
-    return Response({"message": "Image fetched successfully", "result": result}, status=status.HTTP_200_OK)
+    images = AIService.all_image(user=user)
+
+    serializer = ImageGeneratedSerializer(
+        images, many=True, context={"request": request}
+    )
+
+    return Response(
+        {"message": "Images fetched successfully", "result": serializer.data},
+        status=status.HTTP_200_OK,
+    )
 
 
 @api_view(["DELETE"])
-@permission_classes({IsAuthenticated})
+@permission_classes([IsAuthenticated])
 def delete_gen_img(request, img_id):
-    """Delete single AI generated Image of User"""
     user = request.user
     AIService.delete_image(user=user, img_id=img_id)
-    return Response({"message": "Image Deleted Successfully"}, status=status.HTTP_204_NO_CONTENT)
+    return Response({"message": "Image deleted successfully"}, status=200)
