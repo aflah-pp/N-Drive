@@ -16,7 +16,7 @@ import { useStorageUsage } from '../hooks/use-storage';
 import useAuthStore from '../service/store/authStore';
 import FileGlyph from './Files/FileGlyphs';
 import PageHead from './shared/PageHead';
-import PlanCard from './shared/PLanCard';
+import PlanCard from './shared/PlanCard';
 import Stat from './shared/Stats';
 import { StorageCard } from './shared/StorageCard';
 
