@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import PageHead from './PageHead';
+import PageHead from './shared/PageHead';
 
 const dummySearchIndex = {
   files: [

@@ -2,8 +2,8 @@ import { AppSidebar } from '@/components/app-sidebar';
 import { Separator } from '@/components/ui/separator';
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar';
 import { useState } from 'react';
-import { useLocation } from 'react-router-dom';
-import { NotificationBell, NotificationModal, dummyNotifications } from '../../pages/NotificationModel';
+import { Outlet, useLocation } from 'react-router-dom';
+import { NotificationBell, NotificationModal, dummyNotifications } from '../../pages/modals/NotificationModel';
 import ThemeToggle from '../theme-toggle';
 
 export default function AppLayout({ children }) {
@@ -43,7 +43,9 @@ export default function AppLayout({ children }) {
           </header>
 
           <div className="flex flex-1 flex-col">
-            <div className="@container/main flex flex-1 flex-col gap-2">{children}</div>
+            <div className="@container/main flex flex-1 flex-col gap-2">
+              <Outlet />
+            </div>
           </div>
         </SidebarInset>
       </SidebarProvider>

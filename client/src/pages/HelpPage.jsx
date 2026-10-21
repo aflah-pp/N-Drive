@@ -14,7 +14,7 @@ import {
   X,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import PageHead from './PageHead';
+import PageHead from './shared/PageHead';
 
 const helpTopics = [
   {

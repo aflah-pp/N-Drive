@@ -1,6 +1,15 @@
 from rest_framework import serializers
 
-from .models import CustomUser, EncryptedChatSession, Folder, GeneratedImage, Package, Subscription, UserFile
+from .models import (
+    CustomUser,
+    EncryptedChatSession,
+    Folder,
+    GeneratedImage,
+    Package,
+    Subscription,
+    Transaction,
+    UserFile,
+)
 
 
 class MiniPackageSerializer(serializers.ModelSerializer):
@@ -13,6 +22,7 @@ class MiniPackageSerializer(serializers.ModelSerializer):
             "max_upload_size",
             "chat_enabled",
             "image_gen_enabled",
+            "is_free",
         ]
 
 
@@ -37,6 +47,34 @@ class SubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subscription
         fields = ["package", "active_from", "active_to", "status", "created_at"]
+
+
+class TransactionSerializer(serializers.ModelSerializer):
+    subscription = serializers.SerializerMethodField()
+    package = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Transaction
+        fields = ["id", "user", "package", "subscription", "ref", "amount", "status"]
+
+    def get_subscription(self, obj):
+        sub = obj.subscription
+        if not sub:
+            return None
+        return {
+            "active_from": sub.active_from,
+            "active_to": sub.active_to,
+        }
+
+    def get_package(self, obj):
+        package = obj.package or obj.subscription.package
+
+        return {
+            "name": package.name,
+            "max_upload_size": package.max_upload_size,
+            "price": package.price,
+            "description": package.description,
+        }
 
 
 class UserRegisterSerializer(serializers.ModelSerializer):
@@ -150,6 +188,15 @@ class EncryptedChatSessionSerializer(serializers.ModelSerializer):
 
 
 class ImageGeneratedSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+
     class Meta:
         model = GeneratedImage
-        fields = ["id","user","image_url","created_at","created_by"]
+        fields = ["id", "image_url", "created_at"]
+
+    def get_image_url(self, obj):
+        if not obj.image_url:
+            return None
+        request = self.context.get("request")
+        url = obj.image_url.url
+        return request.build_absolute_uri(url) if request else url

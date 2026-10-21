@@ -52,7 +52,11 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
 ]
 
-REST_FRAMEWORK = {"DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",)}
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": (
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    )
+}
 
 ROOT_URLCONF = "backend.urls"
 
@@ -122,7 +126,11 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "api.CustomUser"
 
 # CORS Origins
-CORS_ALLOWED_ORIGINS = ["http://localhost:5173", "https://n-drive-app.netlify.app"]
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "https://n-drive-app.netlify.app",
+]
 CORS_ALLOW_CREDENTIALS = True
 # JWT settings
 SIMPLE_JWT = {
@@ -153,4 +161,4 @@ JWT_REFRESH_COOKIE_MAX_AGE = 604800
 JWT_REFRESH_COOKIE_SECURE = False  # True in production, False in local dev
 JWT_REFRESH_COOKIE_SAMESITE = "Lax"
 JWT_REFRESH_COOKIE_DOMAIN = None
-JWT_REFRESH_COOKIE_PATH = "/api/v1/refresh/"
+JWT_REFRESH_COOKIE_PATH = "/"

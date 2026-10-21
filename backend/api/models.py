@@ -52,12 +52,18 @@ class Subscription(models.Model):
         EXPIRED = "Expired", "Expired"
         ON_QUEUE = "ON_QUEUE", "On Queue"
 
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name="subscriptions")
+    user = models.ForeignKey(
+        CustomUser, on_delete=models.CASCADE, related_name="subscriptions"
+    )
     package = models.ForeignKey(Package, on_delete=models.PROTECT)
     active_from = models.DateField()
     active_to = models.DateField()
     created_at = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=20, choices=SubscriptionStatus.choices, default=SubscriptionStatus.ACTIVE)
+    status = models.CharField(
+        max_length=20,
+        choices=SubscriptionStatus.choices,
+        default=SubscriptionStatus.ACTIVE,
+    )
 
     def __str__(self):
         return f"{self.user.get_full_name()}'s Subscription - {self.status}"
@@ -77,12 +83,16 @@ class Transaction(CreatedByMixin):
         default=uuid.uuid4,
         editable=False,
     )
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="transactions")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name="transactions"
+    )
     package = models.ForeignKey(
         Package,
         on_delete=models.PROTECT,
     )
-    subscription = models.ForeignKey(Subscription, on_delete=models.PROTECT, null=True, blank=True)
+    subscription = models.ForeignKey(
+        Subscription, on_delete=models.PROTECT, null=True, blank=True
+    )
 
     ref = models.CharField(
         max_length=100,
@@ -103,7 +113,6 @@ class Transaction(CreatedByMixin):
 
 
 class Folder(AuditMixin):
-
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
@@ -181,7 +190,11 @@ class GeneratedImage(CreatedByMixin):
 
     id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
-    image_url = models.URLField()
+    image_url = models.ImageField(upload_to="generated/")
 
     def __str__(self):
         return f"{self.user.get_full_name()}'s image @{self.created_at}"
+
+
+# !TODO Notification
+# !TODO Support
