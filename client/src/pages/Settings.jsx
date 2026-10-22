@@ -63,9 +63,9 @@ export function SettingsPage() {
       return;
     }
 
-    const fullName = `${profile.first.trim()} ${profile.last.trim()}`.trim();
     const payload = {
-      full_name: fullName,
+      first_name: profile.first.trim(),
+      last_name: profile.last.trim(),
       username: profile.username.trim(),
       email: profile.email.trim(),
       phone: profile.phone.trim(),

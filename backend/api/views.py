@@ -240,7 +240,7 @@ def update_user(request):
     """
 
     serializer = UpdateUserSerializer(
-        user=request.date, data=request.data, partial=True
+        instance=request.user, data=request.data, partial=True
     )
     serializer.is_valid(raise_exception=True)
     user = serializer.save()

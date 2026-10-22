@@ -43,6 +43,7 @@ const formatDate = (iso) => {
 
 const transformPlan = (raw, index) => {
   const features = FALLBACK_FEATURES(raw);
+  const price = Number(raw.price) || 0;
   return {
     id: raw.id,
     name: raw.name,
@@ -54,21 +55,27 @@ const transformPlan = (raw, index) => {
       (features.length > 0
         ? `${features[0]}${features[1] ? ` · ${features[1]}` : ''}`
         : 'A simple plan to get started.'),
-    price: Number(raw.price) || 0,
+    price,
     days: raw.plan_validity ?? 28,
     features,
     chat: Boolean(raw.chat_enabled),
     images: Boolean(raw.image_gen_enabled),
-    isFreeTier: Boolean(raw.is_free),
+    isFreeTier: Boolean(raw.is_free) || price === 0,
   };
 };
 
-function getPlanAction({ plan, current, isSubscriptionActive }) {
-  const isCurrent = current?.name?.toLowerCase() === plan.name?.toLowerCase();
-
+function getPlanAction({ plan, current, isSubscriptionActive, hasNoSubscription }) {
   if (plan.isFreeTier) {
-    return { label: 'Current plan', disabled: true, tone: 'muted' };
+    const isOnThisFreePlan = hasNoSubscription || current?.isFreeTier;
+    return {
+      label: isOnThisFreePlan ? 'Current plan' : 'Default plan',
+      disabled: true,
+      tone: 'muted',
+      tooltip: 'The Free plan is included by default and cannot be purchased or renewed.',
+    };
   }
+
+  const isCurrent = current?.name?.toLowerCase() === plan.name?.toLowerCase();
 
   if (isCurrent) {
     if (isSubscriptionActive) {
@@ -115,16 +122,22 @@ const PlansPage = () => {
 
   const subscription = user?.subscription;
   const currentPackage = subscription?.package;
-  const currentPlanName = currentPackage?.name ?? null;
-  const currentIsFree = Boolean(currentPackage?.is_free);
+
+  const hasNoSubscription = !subscription;
+  const currentIsFree = hasNoSubscription || Boolean(currentPackage?.is_free);
+
+  const freePlan = useMemo(() => plans.find((p) => p.isFreeTier), [plans]);
+
+  const currentPlanName = hasNoSubscription ? (freePlan?.name ?? 'Free') : (currentPackage?.name ?? null);
+
   const currentStatus = (subscription?.status ?? '').toUpperCase();
 
   const isSubscriptionActive = useMemo(() => {
-    if (!subscription) return false;
+    if (hasNoSubscription) return false;
     if (currentStatus !== 'ACTIVE') return false;
     if (!subscription.active_to) return false;
     return new Date(subscription.active_to) > new Date();
-  }, [subscription, currentStatus]);
+  }, [subscription, currentStatus, hasNoSubscription]);
 
   const currentPlan = useMemo(() => {
     if (!currentPlanName) return null;
@@ -174,16 +187,20 @@ const PlansPage = () => {
     if (isCarousel) handleScroll();
   }, [isCarousel]);
 
-  // ── Kick off payment for a plan ───────────────────────────
   const handlePurchase = async (plan) => {
     if (initiate.isPending) return;
+
+    if (plan.isFreeTier) {
+      toast.info('The Free plan is included by default.');
+      return;
+    }
+
     try {
       const res = await initiate.mutateAsync({ packageId: plan.id });
       const link = res?.result?.payment_link;
       if (!link) {
         throw new Error('No payment link returned from server');
       }
-      // Backend returns "/payment?order_id=order_xxx&amount=…"
       navigate(link);
     } catch (err) {
       toast.error(
@@ -199,6 +216,7 @@ const PlansPage = () => {
       plan,
       current: currentPlan,
       isSubscriptionActive,
+      hasNoSubscription,
     });
 
     const isThisCardProcessing = initiate.isPending && initiate.variables?.packageId === plan.id;
@@ -227,6 +245,10 @@ const PlansPage = () => {
       return 'bg-[var(--primary)] text-[var(--primary-foreground)] hover:opacity-90';
     })();
 
+    const showActiveBadge = isCurrentPlan && !plan.isFreeTier && isSubscriptionActive;
+    const showExpiredBadge = isCurrentPlan && !plan.isFreeTier && !isSubscriptionActive;
+    const showDefaultBadge = plan.isFreeTier && !isCurrentPlan;
+
     return (
       <article
         key={plan.id ?? plan.name}
@@ -236,15 +258,21 @@ const PlansPage = () => {
             : 'border-[var(--border)] shadow-sm'
         }`}
       >
-        {isCurrentPlan && isSubscriptionActive && (
+        {showActiveBadge && (
           <span className="absolute right-3 top-3 rounded-full px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold font-mono uppercase tracking-wider bg-[var(--primary)] text-[var(--primary-foreground)]">
             Active
           </span>
         )}
 
-        {isCurrentPlan && !isSubscriptionActive && (
+        {showExpiredBadge && (
           <span className="absolute right-3 top-3 rounded-full px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold font-mono uppercase tracking-wider bg-amber-500/15 text-amber-700 dark:text-amber-300">
             Expired
+          </span>
+        )}
+
+        {showDefaultBadge && (
+          <span className="absolute right-3 top-3 rounded-full px-2 py-0.5 text-[9px] sm:text-[10px] font-semibold font-mono uppercase tracking-wider bg-[var(--muted)] text-[var(--muted-foreground)]">
+            Default
           </span>
         )}
 
@@ -322,7 +350,7 @@ const PlansPage = () => {
       return (
         <div className="flex-1 flex items-center justify-center py-20">
           <div className="text-center">
-            <p className="text-sm text-[var(--muted-foreground)] mb-3">Couldn’t load plans.</p>
+            <p className="text-sm text-[var(--muted-foreground)] mb-3">Couldn't load plans.</p>
             <button
               type="button"
               onClick={() => refetch()}
@@ -368,13 +396,15 @@ const PlansPage = () => {
 
   const bannerName = currentPlan?.name ?? currentPlanName ?? 'Free';
   const bannerSub = (() => {
-    if (!subscription) return 'No active subscription';
+    if (hasNoSubscription) return 'Free plan · no renewal';
     if (currentIsFree) return 'Free plan · no renewal';
     if (isSubscriptionActive) {
       return `Active until ${formatDate(subscription.active_to)}`;
     }
     return `Expired on ${formatDate(subscription.active_to)}`;
   })();
+
+  const chipIsActive = isSubscriptionActive && !currentIsFree;
 
   return (
     <div className="w-full max-w-full overflow-x-hidden min-h-[calc(100dvh-10rem)] mx-auto px-4 sm:px-6 py-2 sm:py-4 flex flex-col text-[var(--foreground)] bg-[var(--background)] antialiased">
@@ -387,7 +417,7 @@ const PlansPage = () => {
       <div className="border border-[var(--border)] bg-[var(--card)] rounded-[var(--radius)] p-2.5 sm:p-3 mb-2 sm:mb-3 flex flex-row items-center justify-between gap-2.5 shadow-sm shrink-0">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0 bg-[var(--secondary)] text-[var(--secondary-foreground)]">
-            {isSubscriptionActive && !currentIsFree ? <ShieldCheck size={16} /> : <Clock3 size={16} />}
+            {chipIsActive ? <ShieldCheck size={16} /> : <Clock3 size={16} />}
           </div>
           <div className="min-w-0">
             <strong className="block font-bold text-xs sm:text-sm font-manrope truncate">
@@ -398,12 +428,12 @@ const PlansPage = () => {
         </div>
         <span
           className={`shrink-0 text-[9px] sm:text-[10px] font-bold font-mono tracking-wider px-2 py-0.5 rounded-md ${
-            isSubscriptionActive
+            chipIsActive
               ? 'bg-[var(--primary)] text-[var(--primary-foreground)]'
               : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
           }`}
         >
-          {isSubscriptionActive ? 'ACTIVE' : 'INACTIVE'}
+          {chipIsActive ? 'ACTIVE' : 'INACTIVE'}
         </span>
       </div>
 
