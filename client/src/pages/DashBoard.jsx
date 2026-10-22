@@ -50,7 +50,7 @@ export function Overview({ files = [], folders = [], notify = () => {} }) {
         <Stat label="Files in your drive" value="28" note="Across 4 folders" icon={FileText} />
         <Stat label="Storage used" value={`${usage?.used_storage}`} note={`${usage?.total_storage}`} icon={HardDrive} />
         <Stat label="Images created" value="12" note="3 this month" icon={Sparkles} />
-        <Stat label="Plan renews" value={`${user?.subscription?.active_to}`} icon={Clock3} />
+        <Stat label="Plan renews" value={`${user?.subscription?.active_to || 'Free'}`} icon={Clock3} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-2.5 sm:gap-3 mb-3 sm:mb-4 shrink-0">
