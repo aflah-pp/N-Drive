@@ -3,7 +3,6 @@ import {
   ArrowLeft,
   ChevronDown,
   Copy,
-  Download,
   Eye,
   Folder,
   FolderPlus,
@@ -15,10 +14,12 @@ import {
 import { useMemo, useState } from 'react';
 
 import { useStorageFiles } from '@/hooks/use-storage';
+import { toast } from 'sonner';
 import { CreateFolderDialog } from '../modals/CreateFolderModal';
 import { DeleteConfirmDialog } from '../modals/DeleteFileModal';
 import { UploadFileDialog } from '../modals/UploadFileModal';
 import PageHead from '../shared/PageHead';
+import FileDownloadButton from '../shared/FileDownloadButton';
 import FileGlyph from './FileGlyphs';
 
 const EXT_MAP = {
@@ -370,18 +371,14 @@ export function FilesPage() {
                             >
                               <Eye size={14} />
                             </a>
-                            <a
-                              href={file.raw.unique_link_url}
-                              aria-label={`Download ${file.name}`}
-                              className="w-7 h-7 rounded-md flex items-center justify-center text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors active:scale-95"
-                            >
-                              <Download size={14} />
-                            </a>
+
+                            <FileDownloadButton file={file} />
                             <button
                               type="button"
                               aria-label={`Copy link for ${file.name}`}
                               onClick={() => {
                                 navigator.clipboard?.writeText(file.raw.unique_link_url);
+                                toast.success('Image Link Copied.');
                               }}
                               className="w-7 h-7 rounded-md flex items-center justify-center text-[var(--muted-foreground)] hover:bg-[var(--muted)] hover:text-[var(--foreground)] transition-colors active:scale-95"
                             >

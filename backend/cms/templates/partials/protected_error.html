@@ -43,10 +43,6 @@
                 <a href="{% url 'cms:transaction_list' %}" class="btn btn-secondary btn-sm">Go to Transactions</a>
               {% elif model_name == "User" %}
                 <a href="{% url 'cms:user_list' %}" class="btn btn-secondary btn-sm">Go to Users</a>
-              {% elif model_name == "UserFile" %}
-                <a href="{% url 'cms:file_list' %}" class="btn btn-secondary btn-sm">Go to Files</a>
-              {% elif model_name == "Folder" %}
-                <a href="{% url 'cms:folder_list' %}" class="btn btn-secondary btn-sm">Go to Folders</a>
               {% else %}
                 <span style="color:#9ca3af;font-size:12px;">Manual removal required</span>
               {% endif %}

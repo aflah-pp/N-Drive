@@ -2,6 +2,7 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+import dj_database_url
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -30,7 +31,9 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "cloudinary_storage",
     "django.contrib.staticfiles",
+    "cloudinary",
     "rest_framework",
     "rest_framework_simplejwt.token_blacklist",
     "simple_history",
@@ -83,10 +86,9 @@ LOGOUT_REDIRECT_URL = "cms:login"
 
 # Database
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
+    "default": dj_database_url.config(
+        default=os.environ.get("DATABASE_URL", "postgresql://...")
+    )
 }
 
 # Password validation
@@ -131,7 +133,25 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5174",
     "https://n-drive-app.netlify.app",
 ]
+
 CORS_ALLOW_CREDENTIALS = True
+
+CLOUDINARY_STORAGE = {
+    "CLOUD_NAME": os.environ.get("CLOUD_NAME"),
+    "API_KEY": os.environ.get("CLOUDINARY_API"),
+    "API_SECRET": os.environ.get("CLOUDINARY_SECRET"),
+}
+
+STORAGES = {
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
+}
+
+
 # JWT settings
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(days=2),
@@ -150,7 +170,6 @@ SIMPLE_JWT = {
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
 }
 
-# Environment Variables
 FERNET_KEY = os.environ.get("KEY")
 GOOGLE_API_KEY = os.environ.get("GOOGLE_API_KEY")
 STABLE_HORDE_URL = os.environ.get("STABLE_HORDE_URL")
@@ -158,7 +177,7 @@ API_KEY = os.environ.get("API_KEY")
 
 JWT_REFRESH_COOKIE_NAME = "refresh_token"
 JWT_REFRESH_COOKIE_MAX_AGE = 604800
-JWT_REFRESH_COOKIE_SECURE = False  # True in production, False in local dev
+JWT_REFRESH_COOKIE_SECURE = True
 JWT_REFRESH_COOKIE_SAMESITE = "Lax"
 JWT_REFRESH_COOKIE_DOMAIN = None
 JWT_REFRESH_COOKIE_PATH = "/"

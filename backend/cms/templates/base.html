@@ -58,16 +58,6 @@
         </div>
 
         <div class="menu-section">
-          <div class="menu-label">Storage</div>
-          <ul>
-            <li><a href="{% url 'cms:file_list' %}" class="{% if 'file' in request.resolver_match.url_name %}active{% endif %}">
-              <span class="icon">📄</span><span class="text">Files</span></a></li>
-            <li><a href="{% url 'cms:folder_list' %}" class="{% if 'folder' in request.resolver_match.url_name %}active{% endif %}">
-              <span class="icon">📁</span><span class="text">Folders</span></a></li>
-          </ul>
-        </div>
-
-        <div class="menu-section">
           <div class="menu-label">System</div>
           <ul>
             <li><a href="{% url 'cms:audit_log' %}" class="{% if 'audit' in request.resolver_match.url_name %}active{% endif %}">
