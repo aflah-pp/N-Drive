@@ -7,6 +7,7 @@ from datetime import timedelta
 from decimal import Decimal
 from io import BytesIO
 
+import cloudinary.uploader
 import requests
 from cryptography.fernet import Fernet
 from django.conf import settings
@@ -362,10 +363,14 @@ class FileService:
             folder = Folder.objects.filter(id=folder_id, user=user).first()
             if not folder:
                 raise ValidationError({"error": "Folder not Found"})
-
+        upload_result = cloudinary.uploader.upload(
+            uploaded_file,
+            resource_type="auto",
+            folder=f"user_files/{user.id}",  # optional: organize in Cloudinary
+        )
         return UserFile.objects.create(
             user=user,
-            file=uploaded_file,
+            file=upload_result["secure_url"],
             filename=uploaded_file.name,
             size=uploaded_file.size,
             parent_folder=folder,

@@ -2,6 +2,7 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+import cloudinary
 import dj_database_url
 from dotenv import load_dotenv
 
@@ -91,6 +92,12 @@ DATABASES = {
     )
 }
 
+# DATABASES = {
+#     "default": {
+#         "ENGINE": "django.db.backends.sqlite3",
+#         "NAME": BASE_DIR / "db.sqlite3",
+#     }
+# }
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -141,6 +148,13 @@ CLOUDINARY_STORAGE = {
     "API_KEY": os.environ.get("CLOUDINARY_API"),
     "API_SECRET": os.environ.get("CLOUDINARY_SECRET"),
 }
+
+cloudinary.config(
+    cloud_name=CLOUDINARY_STORAGE["CLOUD_NAME"],
+    api_key=CLOUDINARY_STORAGE["API_KEY"],
+    api_secret=CLOUDINARY_STORAGE["API_SECRET"],
+    secure=True,
+)
 
 STORAGES = {
     "default": {

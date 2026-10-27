@@ -4,7 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "vite:dev": "vite",
+    "dev": "concurrently --names \"client,backend\" --prefix-colors \"cyan,green\" \"npm run vite:dev\" \"cd .. && cd backend && uv run python manage.py runserver 8001\"",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
@@ -53,6 +54,7 @@
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.4",
+    "concurrently": "^10.0.6",
     "eslint": "^9.36.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.22",
