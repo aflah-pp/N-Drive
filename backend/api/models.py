@@ -1,14 +1,14 @@
 import uuid
 
+from cloudinary.models import CloudinaryField
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils.text import slugify
 from phonenumber_field.modelfields import PhoneNumberField
 from simple_history.models import HistoricalRecords
 
 from shared.models import AuditMixin, CreatedByMixin
-
-from .utils.upload_path import user_upload_path
 
 
 class Package(models.Model):
@@ -146,7 +146,7 @@ class UserFile(AuditMixin):
         on_delete=models.CASCADE,
         related_name="files",
     )
-    file = models.FileField(upload_to=user_upload_path)
+    file = CloudinaryField(resource_type="auto", folder="user_files")
     filename = models.CharField(max_length=255)
     size = models.BigIntegerField(
         default=0,
@@ -196,5 +196,106 @@ class GeneratedImage(CreatedByMixin):
         return f"{self.user.get_full_name()}'s image @{self.created_at}"
 
 
-# !TODO Notification
-# !TODO Support
+class Support(CreatedByMixin):
+    """Model to store the support question asked by users."""
+
+    class StatusChoice(models.TextChoices):
+        ACTIVE = "ACTIVE", "Active"
+        CLOSED = "CLOSED", "Closed"
+
+    ticket_id = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
+    slug = models.SlugField(unique=True)
+    subject = models.CharField(max_length=120)
+    description = models.TextField()
+    status = models.CharField(
+        max_length=20,
+        choices=StatusChoice.choices,
+        default=StatusChoice.ACTIVE,
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+    visible_to_community = models.BooleanField(
+        default=False,
+        help_text="Whether this support is visible to the entire community or only to admins.",
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = slugify(self.subject)
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        who = (
+            (self.created_by.get_full_name() or self.created_by.username)
+            if self.created_by
+            else "unknown"
+        )
+        return f"Support {self.ticket_id} by {who}"
+
+
+class SupportReply(CreatedByMixin):
+    """Reply given to users who asked a question on support."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    ticket = models.ForeignKey(
+        Support, on_delete=models.CASCADE, related_name="replies"
+    )
+    body = models.TextField()
+    is_admin = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"Reply {self.id} on ticket {self.ticket_id}"
+
+
+class Notification(CreatedByMixin):
+    class ActionType(models.TextChoices):
+        CREATED = "created", "Created"
+        UPDATED = "updated", "Updated"
+        DELETED = "deleted", "Deleted"
+        SHARED = "shared", "Shared"
+        COMMENTED = "commented", "Commented"
+
+    action = models.CharField(max_length=20, choices=ActionType.choices)
+    target = models.CharField(
+        max_length=255,
+        help_text="Short label for the object this notification refers to.",
+    )
+    target_url = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Optional deep link to the referenced object.",
+    )
+    from_user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="notifications_sent",
+    )
+    to_user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    is_read = models.BooleanField(default=False)
+    read_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["to_user", "is_read"]),
+            models.Index(fields=["to_user", "-created_at"]),
+        ]
+
+    def __str__(self):
+        actor = (
+            (self.from_user.get_full_name() or self.from_user.username)
+            if self.from_user
+            else "system"
+        )
+        return f"{actor} {self.action} {self.target} → {self.to_user}"

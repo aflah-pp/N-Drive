@@ -137,6 +137,9 @@ def audit_log(request):
     action = request.GET.get("action", "")
     date_range = request.GET.get("range", "30")
 
+    ACTION_MAP = {"create": "+", "update": "~", "delete": "-"}
+    history_type = ACTION_MAP.get(action.lower(), action)
+
     records = []
     auditable_models = []
 
@@ -145,18 +148,29 @@ def audit_log(request):
             auditable_models.append(model.__name__)
 
     if auditable_models:
+        since = None
+        if date_range and date_range != "all":
+            since = timezone.now() - timedelta(days=int(date_range))
+
         for model in apps.get_models():
             if not hasattr(model, "history"):
                 continue
             if model_name and model.__name__.lower() != model_name.lower():
                 continue
+
             qs = model.history.all().select_related("history_user")
-            if action:
-                qs = qs.filter(history_type=action)
-            if date_range and date_range != "all":
-                since = timezone.now() - timedelta(days=int(date_range))
+            if history_type:
+                qs = qs.filter(history_type=history_type)
+            if since is not None:
                 qs = qs.filter(history_date__gte=since)
-            records.extend(list(qs[:100]))
+
+            for rec in qs[:100]:
+                rec.model_name = model.__name__
+                try:
+                    rec.object_repr = str(rec.instance)
+                except Exception:
+                    rec.object_repr = f"{model.__name__} #{rec.pk}"
+                records.append(rec)
 
         records.sort(key=lambda r: r.history_date, reverse=True)
 

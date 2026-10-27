@@ -70,7 +70,7 @@ export function PaymentResultPage() {
     return {
       plan: pkg?.name ?? '—',
       cycle: pkg?.plan_validity ? `Billed every ${pkg.plan_validity} days` : '',
-      amount: '—',
+      amount: pkg?.amount ?? '-',
       reference: orderId ?? '—',
       date: formatDate(sub?.created_at),
       method: 'Card',
@@ -201,7 +201,7 @@ export function PaymentResultPage() {
 
           <dl className="divide-y divide-[var(--border)] text-[11px] sm:text-xs">
             <Row icon={Receipt} label="Plan" value={receipt.plan} sub={receipt.cycle} />
-            <Row icon={ShieldCheck} label="Amount" value={inr(0)} sub="See billing for details" />
+            <Row icon={ShieldCheck} label="Amount" value={inr(receipt.amount)} sub="See billing for details" />
             <Row icon={Clock3} label="Reference" value={receipt.reference} mono sub={receipt.date} />
             <Row icon={Receipt} label="Method" value={receipt.method} />
           </dl>

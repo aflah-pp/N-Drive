@@ -1,3 +1,4 @@
+from cloudinary import CloudinaryImage
 from rest_framework import serializers
 
 from .models import (
@@ -7,6 +8,8 @@ from .models import (
     GeneratedImage,
     Package,
     Subscription,
+    Support,
+    SupportReply,
     Transaction,
     UserFile,
 )
@@ -145,13 +148,20 @@ class UserFileSerializer(serializers.ModelSerializer):
         ]
 
     def get_file_url(self, obj):
-        # request = self.context.get("request")
-        # if obj.file and request:
-        #     return request.build_absolute_uri(obj.file.url)
-        return obj.file.url if obj.file else None
+        if not obj.file:
+            return None
+        raw = str(obj.file)
+        if raw.startswith("http"):
+            return raw
+        return CloudinaryImage(raw).build_url(secure=True)
 
     def get_unique_link_url(self, obj):
-        return obj.file.url if obj.file else None
+        if not obj.unique_link:
+            return None
+
+        request = self.context.get("request")
+        path = f"/share/{obj.unique_link}"
+        return request.build_absolute_uri(path) if request else path
 
 
 class FolderSerializer(serializers.ModelSerializer):
@@ -197,3 +207,51 @@ class ImageGeneratedSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         url = obj.image_url.url
         return request.build_absolute_uri(url) if request else url
+
+
+class SupportReplyCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupportReply
+        fields = ["body", "is_admin"]
+
+
+class SupportReplySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SupportReply
+        fields = ["id", "ticket", "body", "is_admin", "created_at", "created_by"]
+
+
+class SupportListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Support
+        fields = [
+            "ticket_id",
+            "subject",
+            "slug",
+            "status",
+            "visible_to_community",
+            "created_at",
+        ]
+
+
+class SupportCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Support
+        fields = ["subject", "description", "visible_to_community"]
+
+
+class SupportDetailSerializer(serializers.ModelSerializer):
+    replies = SupportReplySerializer(many=True)
+
+    class Meta:
+        model = Support
+        fields = [
+            "ticket_id",
+            "subject",
+            "slug",
+            "status",
+            "replies",
+            "description",
+            "created_at",
+            "visible_to_community",
+        ]

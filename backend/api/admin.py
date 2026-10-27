@@ -1,6 +1,17 @@
 from django.contrib import admin
 
-from .models import CustomUser, EncryptedChatSession, Folder, Package, Subscription, Transaction, UserFile
+from .models import (
+    CustomUser,
+    EncryptedChatSession,
+    Folder,
+    Notification,
+    Package,
+    Subscription,
+    Support,
+    SupportReply,
+    Transaction,
+    UserFile,
+)
 
 
 class CustomUserAdmin(admin.ModelAdmin):
@@ -70,14 +81,30 @@ class PackageAdmin(admin.ModelAdmin):
     fieldsets = (
         (
             None,
-            {"fields": ("name", "max_upload_size", "chat_enabled", "image_gen_enabled", "price", "description")},
+            {
+                "fields": (
+                    "name",
+                    "max_upload_size",
+                    "chat_enabled",
+                    "image_gen_enabled",
+                    "price",
+                    "description",
+                )
+            },
         ),
     )
     add_fieldsets = (
         None,
         {
             "class": ("wide",),
-            "fields": ("name", "max_upload_size", "chat_enabled", "image_gen_enabled", "price", "description"),
+            "fields": (
+                "name",
+                "max_upload_size",
+                "chat_enabled",
+                "image_gen_enabled",
+                "price",
+                "description",
+            ),
         },
     )
 
@@ -91,5 +118,5 @@ class FolderAdmin(admin.ModelAdmin):
 
 admin.site.register(Folder, FolderAdmin)
 admin.site.register(UserFile)
-admin.site.register([Transaction, Subscription])
+admin.site.register([Transaction, Subscription, Support, SupportReply, Notification])
 admin.site.register(EncryptedChatSession)

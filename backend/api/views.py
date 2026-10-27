@@ -6,8 +6,8 @@ from django.db import transaction
 from django.db.models import Prefetch
 from django.http import FileResponse, HttpResponse
 from django.shortcuts import get_object_or_404
-from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework import mixins, status, viewsets
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -16,6 +16,7 @@ from .models import (
     EncryptedChatSession,
     Folder,
     Package,
+    Support,
     Transaction,
     UserFile,
 )
@@ -24,6 +25,10 @@ from .serializers import (
     ImageGeneratedSerializer,
     PackageSerializer,
     SubscriptionSerializer,
+    SupportCreateSerializer,
+    SupportDetailSerializer,
+    SupportListSerializer,
+    SupportReplyCreateSerializer,
     TransactionSerializer,
     UpdateUserSerializer,
     UserFileSerializer,
@@ -795,3 +800,57 @@ def delete_gen_img(request, img_id):
     user = request.user
     AIService.delete_image(user=user, img_id=img_id)
     return Response({"message": "Image deleted successfully"}, status=200)
+
+
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def get_user_support_list(request):
+    """Returns List of AI Generated Images By User"""
+    user = request.user
+    images = Support.objects.filter(created_by=user)
+
+    serializer = SupportDetailSerializer(
+        images,
+        many=True,
+    )
+
+    return Response(
+        {"message": "Images fetched successfully", "result": serializer.data},
+        status=status.HTTP_200_OK,
+    )
+
+
+class SupportViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.CreateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    permission_classes = [IsAuthenticated]
+
+    queryset = Support.objects.all().order_by("-created_at")
+    lookup_field = "slug"
+
+    def get_serializer_class(self):
+        if self.action == "list":
+            return SupportListSerializer
+        if self.action == "retrieve":
+            return SupportDetailSerializer
+        else:
+            return SupportCreateSerializer
+
+    def perform_destroy(self, instance):
+        instance.delete()
+
+    @action(detail=False, methods=["post"], url_path=r"(?P<slug>[^/.]+)/reply")
+    def create_support_reply(self, request, slug=None):
+        ticket = get_object_or_404(Support, slug=slug)
+
+        serializer = SupportReplyCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save(ticket=ticket, created_by=request.user)
+        return Response(
+            SupportReplyCreateSerializer(serializer.instance).data,
+            status=status.HTTP_201_CREATED,
+        )

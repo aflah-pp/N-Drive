@@ -1,6 +1,11 @@
 from django.urls import path
+from rest_framework.routers import DefaultRouter
 
 from . import views
+
+router = DefaultRouter()
+
+router.register("support", views.SupportViewSet, basename="support")
 
 urlpatterns = [
     # Auth Related
@@ -59,3 +64,5 @@ urlpatterns = [
     ),
     path("bin/clear/", views.clear_bin, name="clear_bin"),
 ]
+
+urlpatterns += router.urls

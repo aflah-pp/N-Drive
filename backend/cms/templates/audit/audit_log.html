@@ -85,11 +85,11 @@
 {% if page_obj.has_other_pages %}
 <div class="pagination">
   {% if page_obj.has_previous %}
-    <a href="?page={{ page_obj.previous_page_number }}&model={{ selected_model }}&action={{ selected_action }}&range={{ selected_range }}">←</a>
+    <a href="?page={{ page_obj.previous_page_number }}{% if selected_model %}&model={{ selected_model }}{% endif %}{% if selected_action %}&action={{ selected_action }}{% endif %}{% if selected_range %}&range={{ selected_range }}{% endif %}">←</a>
   {% endif %}
   <span class="current">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
   {% if page_obj.has_next %}
-    <a href="?page={{ page_obj.next_page_number }}&model={{ selected_model }}&action={{ selected_action }}&range={{ selected_range }}">→</a>
+    <a href="?page={{ page_obj.next_page_number }}{% if selected_model %}&model={{ selected_model }}{% endif %}{% if selected_action %}&action={{ selected_action }}{% endif %}{% if selected_range %}&range={{ selected_range }}{% endif %}">→</a>
   {% endif %}
 </div>
 {% endif %}
